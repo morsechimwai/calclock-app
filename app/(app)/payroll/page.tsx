@@ -42,27 +42,24 @@ export default function PayrollPage() {
       </div>
 
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4">
-          <span className="text-sm font-medium text-zinc-700">คำอธิบาย OT:</span>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-green-600">
-                OT
-              </span>
-              <span className="text-sm text-zinc-600">OT วันที่ 7</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-blue-600">
-                OT
-              </span>
-              <span className="text-sm text-zinc-600">OT จากเปิดล่วงเวลา</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-amber-600">
-                OT
-              </span>
-              <span className="text-sm text-zinc-600">OT วันหยุดนักขัตฤกษ์</span>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
+            <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-green-600">
+              OT
+            </span>
+            <span className="text-sm font-medium text-green-900">OT วันที่ 7</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+            <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-blue-600">
+              OT
+            </span>
+            <span className="text-sm font-medium text-blue-900">OT จากเปิดล่วงเวลา</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-amber-600">
+              OT
+            </span>
+            <span className="text-sm font-medium text-amber-900">OT วันหยุดนักขัตฤกษ์</span>
           </div>
         </div>
 

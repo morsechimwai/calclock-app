@@ -224,7 +224,7 @@ export default function ShiftPage() {
   // Convert shifts to calendar events
   const events = shifts.flatMap((shift) => {
     const isHoliday = shift.isHoliday
-    const enableOvertime = shift.enableOvertime !== undefined ? shift.enableOvertime : true
+    const enableOvertime = shift.enableOvertime !== undefined ? shift.enableOvertime : false
     const checkInTime = shift.checkIn.slice(0, 5)
     const checkOutTime = shift.checkOut.slice(0, 5)
     const timeText = `${checkInTime} - ${checkOutTime}`

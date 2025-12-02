@@ -42,10 +42,10 @@ export function getShiftForDate(
       checkIn,
       checkOut,
       isHoliday: shift.isHoliday,
-      enableOvertime: shift.enableOvertime !== undefined ? shift.enableOvertime : true,
+      enableOvertime: shift.enableOvertime !== undefined ? shift.enableOvertime : false,
     }
   }
-  return { checkIn: "08:00", checkOut: "17:00", isHoliday: false, enableOvertime: true }
+  return { checkIn: "08:00", checkOut: "17:00", isHoliday: false, enableOvertime: false }
 }
 
 // Calculate effective check-in time based on late arrival rules
@@ -170,7 +170,7 @@ export function calculateWorkDaysAndOT(
   isHoliday: boolean,
   isConsecutiveDay7: boolean,
   times: string[],
-  enableOvertime: boolean = true
+  enableOvertime: boolean = false
 ): {
   workDays: number
   otHours: number
@@ -243,11 +243,16 @@ export function calculateWorkDaysAndOT(
       ? actualCheckOutMinutes
       : Math.min(actualCheckOutMinutes, shiftCheckOutMinutes)
 
-    // Calculate total work hours (without subtracting lunch break for OT calculation)
-    const totalMinutesWithoutLunch = effectiveCheckOutMinutes - effectiveCheckInMinutes
+    // Calculate total work hours
+    let totalMinutes = effectiveCheckOutMinutes - effectiveCheckInMinutes
 
     // Check if worked 8+ hours for lunch break
-    const hasLunch = totalMinutesWithoutLunch >= STANDARD_WORK_HOURS * 60
+    const hasLunch = totalMinutes >= STANDARD_WORK_HOURS * 60
+
+    // Subtract 1 hour lunch break if worked 8+ hours
+    if (hasLunch) {
+      totalMinutes -= LUNCH_BREAK_DEDUCTION * 60
+    }
 
     // If worked 8+ hours, always include lunch break OT (0.5 hours)
     let lunchBreakOT = 0
@@ -256,8 +261,8 @@ export function calculateWorkDaysAndOT(
       // Don't add to otHours - it's a separate field
     }
 
-    // All work hours (without subtracting lunch break) count as OT
-    const totalHours = minutesToHours(totalMinutesWithoutLunch)
+    // All work hours (after subtracting lunch break) count as OT
+    const totalHours = minutesToHours(totalMinutes)
 
     return {
       workDays: 0,

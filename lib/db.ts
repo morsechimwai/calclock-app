@@ -813,7 +813,7 @@ export function getShift(date: string): Shift | null {
   return {
     ...row,
     isHoliday: Boolean(row.isHoliday),
-    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : true,
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
   }
 }
 
@@ -838,7 +838,7 @@ export function getShiftsByDateRange(startDate: string, endDate: string): Shift[
   return rows.map((row) => ({
     ...row,
     isHoliday: Boolean(row.isHoliday),
-    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : true,
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
   }))
 }
 
@@ -862,7 +862,7 @@ export function getAllShifts(): Shift[] {
   return rows.map((row) => ({
     ...row,
     isHoliday: Boolean(row.isHoliday),
-    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : true,
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
   }))
 }
 
@@ -934,7 +934,7 @@ export function createOrUpdateShift(input: {
       checkIn: input.checkIn || "08:00:00",
       checkOut: input.checkOut || "17:00:00",
       isHoliday: input.isHoliday ? 1 : 0,
-      enableOvertime: input.enableOvertime !== undefined ? (input.enableOvertime ? 1 : 0) : 1,
+      enableOvertime: input.enableOvertime !== undefined ? (input.enableOvertime ? 1 : 0) : 0,
     })
 
     return getShift(input.date)!

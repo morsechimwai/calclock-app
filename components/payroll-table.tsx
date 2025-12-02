@@ -241,10 +241,9 @@ export function PayrollTable({ data, onRefresh }: Props) {
                     const isHoliday = shift.isHoliday
 
                     // Check if OT is from enableOvertime (not consecutive day 7 or holiday)
+                    // Show blue OT tag only when enableOvertime is explicitly enabled
                     const hasOvertimeFromEnableOT =
-                      hasTwoTimes &&
                       shift.enableOvertime &&
-                      otHours > 0 &&
                       !isConsecutive7 &&
                       !isHoliday
 
@@ -262,7 +261,7 @@ export function PayrollTable({ data, onRefresh }: Props) {
                         {entryIndex === 0 && (
                           <TableCell
                             rowSpan={employee.entries.length + 1}
-                            className="align-top border-r border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-900 bg-zinc-50/30"
+                            className="align-top border-r border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-900 bg-white"
                           >
                             {employee.employeeName || `ไม่พบข้อมูล (รหัส: ${employee.fingerprint})`}
                           </TableCell>

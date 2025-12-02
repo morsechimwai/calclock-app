@@ -39,14 +39,14 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
         checkIn: shift.checkIn.slice(0, 5),
         checkOut: shift.checkOut.slice(0, 5),
         isHoliday: shift.isHoliday,
-        enableOvertime: shift.enableOvertime !== undefined ? shift.enableOvertime : true,
+        enableOvertime: shift.enableOvertime !== undefined ? shift.enableOvertime : false,
       }
     }
     return {
       checkIn: "08:00",
       checkOut: "17:00",
       isHoliday: false,
-      enableOvertime: true,
+      enableOvertime: false,
     }
   }
 
@@ -62,7 +62,7 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
       setCheckIn("08:00")
       setCheckOut("17:00")
       setIsHoliday(false)
-      setEnableOvertime(true)
+      setEnableOvertime(false)
       return
     }
 
@@ -71,12 +71,12 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
       setCheckIn(shift.checkIn.slice(0, 5))
       setCheckOut(shift.checkOut.slice(0, 5))
       setIsHoliday(shift.isHoliday)
-      setEnableOvertime(shift.enableOvertime !== undefined ? shift.enableOvertime : true)
+      setEnableOvertime(shift.enableOvertime !== undefined ? shift.enableOvertime : false)
     } else {
       setCheckIn("08:00")
       setCheckOut("17:00")
       setIsHoliday(false)
-      setEnableOvertime(true)
+      setEnableOvertime(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shift?.date, shift?.checkIn, shift?.checkOut, shift?.isHoliday, shift?.enableOvertime])
