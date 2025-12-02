@@ -23,8 +23,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
   return (
-    <div className="flex min-h-screen bg-zinc-100 text-zinc-900">
-      <aside className="hidden w-60 flex-col border-r border-zinc-200 bg-white px-4 py-6 md:flex">
+    <div className="min-h-screen bg-zinc-100 text-zinc-900">
+      <aside className="fixed left-0 top-0 hidden h-screen w-60 flex-col border-r border-zinc-200 bg-white px-4 py-6 md:flex">
         <div className="mb-6 flex items-start gap-2">
           <div className="flex size-10 min-w-10 items-center justify-center rounded-xl bg-zinc-900 text-base font-semibold text-white">
             CC
@@ -61,7 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
-      <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+      <main className="min-h-screen px-4 py-6 md:ml-60 md:px-8 md:py-8">{children}</main>
     </div>
   )
 }
