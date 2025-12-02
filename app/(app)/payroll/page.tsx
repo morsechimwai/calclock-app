@@ -52,7 +52,7 @@ export default function PayrollPage() {
           disabled={!dateRange?.from || !dateRange?.to || isPending}
           className="px-4 py-2 text-base font-semibold"
         >
-          {isPending ? "กำลังโหลด..." : "โหลดข้อมูล"}
+          {isPending ? "กำลังคำนวณ..." : "คำนวณเงินเดือน"}
         </Button>
       </div>
 

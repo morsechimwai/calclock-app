@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import FullCalendar from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/daygrid"
 import interactionPlugin from "@fullcalendar/interaction"
-import type { DateSelectArg, EventClickArg } from "@fullcalendar/core"
+import type { DateSelectArg, EventClickArg, CalendarApi } from "@fullcalendar/core"
 import { getShiftsAction, createOrUpdateShiftAction, deleteShiftAction } from "./actions"
 import type { Shift } from "@/lib/db"
 import { ShiftDialog } from "@/components/shift-dialog"
@@ -69,6 +69,17 @@ export default function ShiftPage() {
   const [errorMessage, setErrorMessage] = useState<string>("")
   const titleUpdateRef = useRef<string>("")
   const isUpdatingTitleRef = useRef(false)
+  const calendarApiRef = useRef<CalendarApi | null>(null)
+
+  // Unselect calendar when dialog closes
+  useEffect(() => {
+    if (!dialogOpen && calendarApiRef.current) {
+      // Small delay to ensure calendar is ready
+      setTimeout(() => {
+        calendarApiRef.current?.unselect()
+      }, 100)
+    }
+  }, [dialogOpen])
 
   useEffect(() => {
     loadShifts()
@@ -159,6 +170,14 @@ export default function ShiftPage() {
     if (result.success && result.data) {
       await loadShifts()
       setDialogOpen(false)
+      // Use the date that was just saved to set the calendar view
+      const savedDate = new Date(data.date)
+      setTimeout(() => {
+        if (calendarApiRef.current) {
+          calendarApiRef.current.gotoDate(savedDate)
+          calendarApiRef.current.unselect()
+        }
+      }, 150)
       setSelectedDate(null)
     } else {
       setErrorMessage(result.error || "เกิดข้อผิดพลาดในการบันทึกข้อมูล")
@@ -178,6 +197,14 @@ export default function ShiftPage() {
     if (result.success) {
       await loadShifts()
       setDialogOpen(false)
+      // Use the date that was just deleted to set the calendar view
+      const deletedDate = new Date(deleteDate)
+      setTimeout(() => {
+        if (calendarApiRef.current) {
+          calendarApiRef.current.gotoDate(deletedDate)
+          calendarApiRef.current.unselect()
+        }
+      }, 150)
       setSelectedDate(null)
       setDeleteDialogOpen(false)
       setDeleteDate(null)
@@ -193,21 +220,62 @@ export default function ShiftPage() {
   }
 
   // Convert shifts to calendar events
-  const events = shifts.map((shift) => {
+  const events = shifts.flatMap((shift) => {
     const isHoliday = shift.isHoliday
-    const title = isHoliday
-      ? "วันหยุดนักขัตฤกษ์"
-      : `${shift.checkIn.slice(0, 5)} - ${shift.checkOut.slice(0, 5)}`
+    const checkInTime = shift.checkIn.slice(0, 5)
+    const checkOutTime = shift.checkOut.slice(0, 5)
+    const timeText = `${checkInTime} - ${checkOutTime}`
 
+    if (isHoliday) {
+      // For holidays, create 2 separate events
+      return [
+        {
+          id: `${shift.id}-holiday-label`,
+          title: "วันหยุดนักขัตฤกษ์",
+          start: shift.date,
+          allDay: true,
+          backgroundColor: "rgb(254 243 199)", // amber-100 for holiday label (light amber)
+          borderColor: "rgb(251 191 36)", // amber-400
+          textColor: "rgb(180 83 9)", // amber-800
+          extendedProps: {
+            checkIn: checkInTime,
+            checkOut: checkOutTime,
+            isHoliday: true,
+            isHolidayLabel: true,
+          },
+        },
+        {
+          id: `${shift.id}-holiday-time`,
+          title: timeText,
+          start: shift.date,
+          allDay: true,
+          backgroundColor: "rgb(244 244 245)", // zinc-100 for time (light like work day)
+          borderColor: "rgb(228 228 231)", // zinc-200
+          textColor: "rgb(24 24 27)", // zinc-900
+          extendedProps: {
+            checkIn: checkInTime,
+            checkOut: checkOutTime,
+            isHoliday: true,
+            isHolidayTime: true,
+          },
+        },
+      ]
+    }
+
+    // For work days, single event
     return {
       id: shift.id.toString(),
-      title,
+      title: timeText,
       start: shift.date,
       allDay: true,
-      // Use zinc colors from theme
-      backgroundColor: isHoliday ? "rgb(251 191 36)" : "rgb(24 24 27)", // amber-400 for holiday, zinc-900 for work
-      borderColor: isHoliday ? "rgb(245 158 11)" : "rgb(24 24 27)",
-      textColor: "white",
+      backgroundColor: "rgb(244 244 245)", // zinc-100 for work
+      borderColor: "rgb(228 228 231)", // zinc-200
+      textColor: "rgb(24 24 27)", // zinc-900
+      extendedProps: {
+        checkIn: checkInTime,
+        checkOut: checkOutTime,
+        isHoliday: false,
+      },
     }
   })
 
@@ -238,6 +306,61 @@ export default function ShiftPage() {
             select={handleDateSelect}
             eventClick={handleEventClick}
             locale={thaiLocale}
+            eventContent={(eventInfo) => {
+              const { checkIn, checkOut, isHolidayLabel, isHolidayTime } = eventInfo.event
+                .extendedProps as {
+                checkIn?: string
+                checkOut?: string
+                isHolidayLabel?: boolean
+                isHolidayTime?: boolean
+              }
+              const timeText =
+                checkIn && checkOut ? `${checkIn} - ${checkOut}` : eventInfo.event.title
+
+              // Holiday label event (yellow)
+              if (isHolidayLabel) {
+                return {
+                  html: `
+                    <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
+                      <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">วันหยุดนักขัตฤกษ์</span>
+                    </div>
+                  `,
+                }
+              }
+
+              // Holiday time event (white text on dark background)
+              if (isHolidayTime) {
+                return {
+                  html: `
+                    <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                      </svg>
+                      <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">${timeText}</span>
+                    </div>
+                  `,
+                }
+              }
+
+              // Work day event
+              return {
+                html: `
+                  <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">${timeText}</span>
+                  </div>
+                `,
+              }
+            }}
+            ref={(ref) => {
+              if (ref) {
+                calendarApiRef.current = ref.getApi()
+              }
+            }}
             headerToolbar={{
               left: "prev,next today",
               center: "title",

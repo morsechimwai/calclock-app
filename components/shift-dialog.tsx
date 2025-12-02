@@ -133,33 +133,27 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
             </Label>
           </div>
 
-          {!isHoliday && (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="check-in">เวลาเข้า</Label>
-                <Input
-                  type="time"
-                  id="check-in"
-                  step="60"
-                  value={checkIn}
-                  onChange={(e) => setCheckIn(e.target.value)}
-                  disabled={isHoliday}
-                />
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor="check-in">เวลาเข้า</Label>
+            <Input
+              type="time"
+              id="check-in"
+              step="60"
+              value={checkIn}
+              onChange={(e) => setCheckIn(e.target.value)}
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="check-out">เวลาออก</Label>
-                <Input
-                  type="time"
-                  id="check-out"
-                  step="60"
-                  value={checkOut}
-                  onChange={(e) => setCheckOut(e.target.value)}
-                  disabled={isHoliday}
-                />
-              </div>
-            </>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="check-out">เวลาออก</Label>
+            <Input
+              type="time"
+              id="check-out"
+              step="60"
+              value={checkOut}
+              onChange={(e) => setCheckOut(e.target.value)}
+            />
+          </div>
         </div>
 
         <DialogFooter>

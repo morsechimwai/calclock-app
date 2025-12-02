@@ -5,8 +5,10 @@ import {
   getEmployees,
   createFingerprint,
   deleteFingerprint,
+  getShiftsByDateRange,
   type Fingerprint,
   type Employee,
+  type Shift,
 } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
@@ -32,6 +34,7 @@ export type PayrollData = {
       isManual: boolean
     }>
   }>
+  shifts: Array<Shift>
 }
 
 export async function getPayrollData(
@@ -40,6 +43,13 @@ export async function getPayrollData(
 ): Promise<PayrollData[]> {
   // Get fingerprints in date range
   const fingerprints = getFingerprintsByDateRange(startDate, endDate)
+
+  // Get shifts in date range
+  const shifts = getShiftsByDateRange(startDate, endDate)
+  const shiftMap = new Map<string, Shift>()
+  shifts.forEach((shift) => {
+    shiftMap.set(shift.date, shift)
+  })
 
   // Get all employees for name lookup
   const employees = getEmployees()
@@ -96,14 +106,22 @@ export async function getPayrollData(
       fingerprint,
       employeeName: employee?.name ?? null,
       entries,
+      shifts: Array.from(shiftMap.values()),
     })
   })
 
-  // Sort by employee name
+  // Sort by fingerprint (ascending) - numeric sort if both are numbers, otherwise string sort
   result.sort((a, b) => {
-    const nameA = a.employeeName ?? a.fingerprint
-    const nameB = b.employeeName ?? b.fingerprint
-    return nameA.localeCompare(nameB, "th")
+    const aNum = Number(a.fingerprint)
+    const bNum = Number(b.fingerprint)
+
+    // If both are valid numbers, sort numerically
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return aNum - bNum
+    }
+
+    // Otherwise sort as strings
+    return a.fingerprint.localeCompare(b.fingerprint)
   })
 
   return result

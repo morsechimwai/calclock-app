@@ -6,6 +6,13 @@ import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
 import type { PayrollData } from "@/app/(app)/payroll/actions"
 import { addFingerprintTime, removeFingerprintTime } from "@/app/(app)/payroll/actions"
 import {
+  calculateWorkDaysAndOT,
+  getCheckInCheckOut,
+  getShiftForDate,
+  isConsecutiveDay7,
+  type Shift,
+} from "@/lib/utils/payroll-calculator"
+import {
   Table,
   TableBody,
   TableCell,
@@ -19,7 +26,6 @@ import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -34,106 +40,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Fingerprint, Plus, X } from "lucide-react"
+import { Fingerprint, Plus, X, ClockAlert } from "lucide-react"
 
 type Props = {
   data: PayrollData[]
   onRefresh?: () => void
-}
-
-// Default work hours
-const DEFAULT_CHECK_IN = "08:00"
-const DEFAULT_CHECK_OUT = "17:00"
-const STANDARD_WORK_HOURS = 8 // 8 hours per day
-const LUNCH_BREAK = 0.5 // 0.5 hours (12:30 - 13:00)
-
-// Convert time string (HH:MM) to minutes
-function timeToMinutes(time: string): number {
-  const [hour, minute] = time.split(":").map(Number)
-  return hour * 60 + minute
-}
-
-// Convert minutes to hours (decimal)
-function minutesToHours(minutes: number): number {
-  return minutes / 60
-}
-
-// Check if there's a lunch break (between 12:30 and 13:00)
-function hasLunchBreak(times: string[]): boolean {
-  const lunchStart = timeToMinutes("12:30")
-  const lunchEnd = timeToMinutes("13:00")
-
-  return times.some((time) => {
-    const [hour, minute] = time.split(":").map(Number)
-    const timeMinutes = hour * 60 + minute
-    return timeMinutes >= lunchStart && timeMinutes <= lunchEnd
-  })
-}
-
-// Calculate check-in and check-out times from fingerprint data
-function calculateWorkHours(times: string[]): { checkIn: string; checkOut: string } {
-  if (times.length === 0) {
-    return { checkIn: DEFAULT_CHECK_IN, checkOut: DEFAULT_CHECK_OUT }
-  }
-
-  // Sort times
-  const sortedTimes = times
-    .map((time) => {
-      const [hour, minute] = time.split(":")
-      return `${hour}:${minute}`
-    })
-    .sort()
-
-  // First time is check-in, last time is check-out
-  const checkIn = sortedTimes[0]
-  const checkOut = sortedTimes.length > 1 ? sortedTimes[sortedTimes.length - 1] : DEFAULT_CHECK_OUT
-
-  return { checkIn, checkOut }
-}
-
-// Calculate work days and OT hours
-function calculateWorkDaysAndOT(
-  checkIn: string,
-  checkOut: string,
-  times: string[]
-): {
-  workDays: number
-  otHours: number
-} {
-  const checkInMinutes = timeToMinutes(checkIn)
-  const checkOutMinutes = timeToMinutes(checkOut)
-
-  // Total minutes worked
-  let totalMinutes = checkOutMinutes - checkInMinutes
-
-  // Subtract lunch break if exists
-  const hasLunch = hasLunchBreak(times)
-  if (hasLunch) {
-    totalMinutes -= LUNCH_BREAK * 60
-  }
-
-  const totalHours = minutesToHours(totalMinutes)
-
-  // Calculate work days and OT
-  let workDays: number
-  let otHours: number
-
-  if (totalHours >= STANDARD_WORK_HOURS) {
-    // Worked 8+ hours: workDays = 1, OT = lunch break (0.5) + excess hours
-    workDays = 1
-    const excessHours = totalHours - STANDARD_WORK_HOURS
-    otHours = (hasLunch ? LUNCH_BREAK : 0) + excessHours
-  } else {
-    // Worked less than 8 hours: workDays = proportion, OT = lunch break only if exists
-    workDays = totalHours / STANDARD_WORK_HOURS
-    otHours = hasLunch ? LUNCH_BREAK : 0
-  }
-
-  // Round to 1 decimal place
-  workDays = Math.round(workDays * 10) / 10
-  otHours = Math.round(otHours * 10) / 10
-
-  return { workDays, otHours }
 }
 
 export function PayrollTable({ data, onRefresh }: Props) {
@@ -239,31 +150,56 @@ export function PayrollTable({ data, onRefresh }: Props) {
               <TableHead className="w-[120px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
                 วันทํางาน
               </TableHead>
+              <TableHead className="w-[120px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
+                พักกลางวัน (โอที)
+              </TableHead>
               <TableHead className="w-[120px] px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
-                ชั่วโมงโอที
+                ล่วงเวลา (โอที)
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.map((employee) => {
+              // Create shift map from array
+              const shiftMap = new Map<string, Shift>()
+              employee.shifts.forEach((shift) => {
+                shiftMap.set(shift.date, shift)
+              })
+
+              // Get all dates for this employee to check consecutive days
+              const employeeDates = employee.entries.map((e) => e.date).sort()
+
               // Calculate totals for this employee
               let employeeWorkDays = 0
               let employeeOTHours = 0
+              let employeeLunchBreakOT = 0
 
               employee.entries.forEach((entry) => {
                 // Only calculate if there are exactly 2 time entries
                 if (entry.times.length === 2) {
                   const timeStrings = entry.times.map((t) => t.time)
-                  const { checkIn, checkOut } = calculateWorkHours(timeStrings)
-                  const { workDays, otHours } = calculateWorkDaysAndOT(checkIn, checkOut, timeStrings)
+                  const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
+                  const shift = getShiftForDate(entry.date, shiftMap)
+                  const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
+                  const { workDays, otHours, lunchBreakOT } = calculateWorkDaysAndOT(
+                    checkIn,
+                    checkOut,
+                    shift.checkIn,
+                    shift.checkOut,
+                    shift.isHoliday,
+                    isConsecutive7,
+                    timeStrings
+                  )
                   employeeWorkDays += workDays
                   employeeOTHours += otHours
+                  employeeLunchBreakOT += lunchBreakOT
                 }
               })
 
               // Round totals to 1 decimal place
               employeeWorkDays = Math.round(employeeWorkDays * 10) / 10
               employeeOTHours = Math.round(employeeOTHours * 10) / 10
+              employeeLunchBreakOT = Math.round(employeeLunchBreakOT * 10) / 10
 
               return (
                 <React.Fragment key={employee.fingerprint}>
@@ -282,17 +218,36 @@ export function PayrollTable({ data, onRefresh }: Props) {
                     // Only calculate if there are exactly 2 time entries
                     const hasTwoTimes = entry.times.length === 2
                     const timeStrings = entry.times.map((t) => t.time)
-                    const { checkIn, checkOut } = calculateWorkHours(timeStrings)
+                    const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
+                    const shift = getShiftForDate(entry.date, shiftMap)
+                    const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
 
                     // Calculate work days and OT hours (only if 2 times)
-                    const { workDays, otHours } = hasTwoTimes
-                      ? calculateWorkDaysAndOT(checkIn, checkOut, timeStrings)
-                      : { workDays: 0, otHours: 0 }
+                    const { workDays, otHours, lunchBreakOT, isLateWarning } = hasTwoTimes
+                      ? calculateWorkDaysAndOT(
+                          checkIn,
+                          checkOut,
+                          shift.checkIn,
+                          shift.checkOut,
+                          shift.isHoliday,
+                          isConsecutive7,
+                          timeStrings
+                        )
+                      : { workDays: 0, otHours: 0, lunchBreakOT: 0, isLateWarning: false }
+
+                    // Check if this is a holiday
+                    const isHoliday = shift.isHoliday
 
                     return (
                       <TableRow
                         key={`${employee.fingerprint}-${entry.date}-${entryIndex}`}
-                        className="border-b border-zinc-200 hover:bg-zinc-50/50"
+                        className={`border-b border-zinc-200 ${
+                          isConsecutive7
+                            ? "bg-blue-50 hover:bg-blue-100"
+                            : isHoliday
+                            ? "bg-amber-50 hover:bg-amber-100"
+                            : "hover:bg-zinc-50/50"
+                        }`}
                       >
                         {entryIndex === 0 && (
                           <TableCell
@@ -303,35 +258,64 @@ export function PayrollTable({ data, onRefresh }: Props) {
                           </TableCell>
                         )}
                         <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700">
-                          {formattedDate}
+                          <div className="flex items-center gap-2">
+                            <span>{formattedDate}</span>
+                            {(isConsecutive7 || isHoliday) && (
+                              <span
+                                className={`px-2 py-0.5 rounded text-white text-xs font-semibold ${
+                                  isConsecutive7 ? "bg-blue-600" : "bg-amber-600"
+                                }`}
+                              >
+                                OT
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700 font-mono">
                           <div className="flex flex-wrap items-center gap-2">
                             {timesFormatted.length > 0 ? (
                               <>
-                                {timesFormatted.map((timeData) => (
-                                  <div
-                                    key={timeData.id}
-                                    className={`flex items-center gap-1 px-2 py-1 rounded-md ${
-                                      timeData.isManual
-                                        ? "bg-amber-50 border border-amber-200"
-                                        : "bg-zinc-100"
-                                    }`}
-                                  >
-                                    <Fingerprint className="size-4" />
-                                    <span>{timeData.time}</span>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-5 w-5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      onClick={() => handleRemoveTimeClick(timeData.id)}
-                                      disabled={isPending}
-                                      title="ลบเวลา"
+                                {timesFormatted.map((timeData, timeIndex) => {
+                                  // Check if this is the check-in time and has late warning
+                                  const isCheckInTime = timeIndex === 0
+                                  const showLateWarning = isCheckInTime && isLateWarning
+
+                                  return (
+                                    <div
+                                      key={timeData.id}
+                                      className={`flex items-center gap-1 px-2 py-1 rounded-md ${
+                                        showLateWarning
+                                          ? "bg-red-50 border border-red-200"
+                                          : timeData.isManual
+                                          ? "bg-amber-50 border border-amber-200"
+                                          : "bg-zinc-100"
+                                      }`}
                                     >
-                                      <X className="size-3" />
-                                    </Button>
-                                  </div>
-                                ))}
+                                      {showLateWarning ? (
+                                        <ClockAlert className="size-4 text-red-600" />
+                                      ) : (
+                                        <Fingerprint className="size-4" />
+                                      )}
+                                      <span
+                                        className={
+                                          showLateWarning ? "text-red-600 font-medium" : ""
+                                        }
+                                      >
+                                        {timeData.time}
+                                      </span>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        onClick={() => handleRemoveTimeClick(timeData.id)}
+                                        disabled={isPending}
+                                        title="ลบเวลา"
+                                      >
+                                        <X className="size-3" />
+                                      </Button>
+                                    </div>
+                                  )
+                                })}
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -381,6 +365,9 @@ export function PayrollTable({ data, onRefresh }: Props) {
                         <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700 text-center font-mono">
                           {hasTwoTimes ? workDays.toFixed(1) : "-"}
                         </TableCell>
+                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700 text-center font-mono">
+                          {hasTwoTimes ? (lunchBreakOT > 0 ? lunchBreakOT.toFixed(1) : "0") : "-"}
+                        </TableCell>
                         <TableCell className="px-4 py-3 text-sm text-zinc-700 text-center font-mono">
                           {hasTwoTimes ? (otHours > 0 ? otHours.toFixed(1) : "0") : "-"}
                         </TableCell>
@@ -398,6 +385,9 @@ export function PayrollTable({ data, onRefresh }: Props) {
                     <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
                       {employeeWorkDays.toFixed(1)}
                     </TableCell>
+                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
+                      {employeeLunchBreakOT.toFixed(1)}
+                    </TableCell>
                     <TableCell className="px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
                       {employeeOTHours.toFixed(1)}
                     </TableCell>
@@ -414,18 +404,15 @@ export function PayrollTable({ data, onRefresh }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>เพิ่มเวลาใหม่</DialogTitle>
-            <DialogDescription>
-              {selectedEntry && (
-                <div className="space-y-1 mt-2">
-                  <div className="text-sm font-medium text-zinc-900">
-                    พนักงาน:{" "}
-                    {selectedEntry.employeeName ||
-                      `ไม่พบข้อมูล (รหัส: ${selectedEntry.fingerprint})`}
-                  </div>
-                  <div className="text-sm text-zinc-600">วันที่: {selectedEntry.formattedDate}</div>
+            {selectedEntry && (
+              <div className="space-y-1 mt-2">
+                <div className="text-sm font-medium text-zinc-900">
+                  พนักงาน:{" "}
+                  {selectedEntry.employeeName || `ไม่พบข้อมูล (รหัส: ${selectedEntry.fingerprint})`}
                 </div>
-              )}
-            </DialogDescription>
+                <div className="text-sm text-zinc-600">วันที่: {selectedEntry.formattedDate}</div>
+              </div>
+            )}
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
