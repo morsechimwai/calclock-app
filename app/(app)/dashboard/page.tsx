@@ -1,26 +1,93 @@
-import { Button } from "@/components/ui/button"
+"use client"
+
+import { useState, useTransition, useEffect } from "react"
+import { getDashboardStats } from "./actions"
+import { DashboardStatsCards } from "@/components/dashboard-stats-cards"
+import { DashboardCharts } from "@/components/dashboard-charts"
+import type { DashboardStats } from "./actions"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 
 export default function DashboardPage() {
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-        หน้าหลัก
-      </h1>
-      <p className="text-base text-zinc-600">
-        ภาพรวมระบบและเข้าถึงฟีเจอร์หลักได้จากที่นี่
-      </p>
+  const [selectedYear, setSelectedYear] = useState<string>("all")
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [isPending, startTransition] = useTransition()
 
-      <div className="mt-4 flex flex-col gap-3">
-        <Button className="w-full justify-start px-4 py-3 text-left text-base font-semibold">
-          คำนวณเงินเดือน
-        </Button>
-        <Button variant="outline" className="w-full justify-start px-4 py-3 text-left text-base">
-          บันทึกเวลาเข้างาน
-        </Button>
-        <Button variant="outline" className="w-full justify-start px-4 py-3 text-left text-base">
-          จัดการพนักงาน
-        </Button>
+  // Get current year and available years
+  const currentYear = new Date().getFullYear()
+  const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
+
+  // Load stats on mount
+  useEffect(() => {
+    loadStats(selectedYear)
+  }, [])
+
+  function loadStats(year: string) {
+    startTransition(async () => {
+      const yearNum = year === "all" ? null : parseInt(year)
+      const data = await getDashboardStats(yearNum)
+      setStats(data)
+    })
+  }
+
+  function handleYearChange(year: string) {
+    setSelectedYear(year)
+    loadStats(year)
+  }
+
+  if (!stats) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-zinc-600">กำลังโหลด...</div>
       </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">หน้าหลัก</h1>
+          <p className="text-base text-zinc-600">
+            ภาพรวมระบบและสถิติการใช้งาน
+            {selectedYear !== "all" && (
+              <span className="ml-2 text-zinc-500">
+                (พ.ศ. {parseInt(selectedYear) + 543})
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="year-select" className="text-sm font-medium text-zinc-700">
+            ดูข้อมูล:
+          </Label>
+          <Select value={selectedYear} onValueChange={handleYearChange} disabled={isPending}>
+            <SelectTrigger id="year-select" className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">ทั้งหมด</SelectItem>
+              {availableYears.map((year) => {
+                const beYear = year + 543
+                return (
+                  <SelectItem key={year} value={year.toString()}>
+                    พ.ศ. {beYear}
+                  </SelectItem>
+                )
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <DashboardStatsCards stats={stats} />
+      <DashboardCharts stats={stats} />
     </div>
   )
 }

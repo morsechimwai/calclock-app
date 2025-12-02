@@ -54,7 +54,9 @@ export function InsertForm() {
                 <TableCell>มอร์ส</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm">0</TableCell>
-                <TableCell className="font-mono text-sm">2024/01/28 17:17:05</TableCell>
+                <TableCell className="font-mono text-sm font-semibold text-blue-600">
+                  2024/01/28 17:17:05
+                </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell className="font-mono text-sm">2</TableCell>
@@ -63,7 +65,9 @@ export function InsertForm() {
                 <TableCell>ป๋าเฉลียว</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm">0</TableCell>
-                <TableCell className="font-mono text-sm">2024/01/28 17:19:23</TableCell>
+                <TableCell className="font-mono text-sm font-semibold text-blue-600">
+                  2024/01/28 17:19:23
+                </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell className="font-mono text-sm">3</TableCell>
@@ -72,22 +76,24 @@ export function InsertForm() {
                 <TableCell>มอร์ส</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm">0</TableCell>
-                <TableCell className="font-mono text-sm">2024/01/28 17:28:28</TableCell>
+                <TableCell className="font-mono text-sm font-semibold text-blue-600">
+                  2024/01/28 17:28:28
+                </TableCell>
               </TableRow>
             </TableBody>
           </Table>
         </div>
 
-        <div className="mt-4 space-y-2 rounded-md bg-blue-50 p-3 text-sm">
-          <p className="font-medium text-blue-900">หมายเหตุ:</p>
-          <ul className="ml-4 list-disc space-y-1 text-blue-800">
+        <div className="mt-4 space-y-2 rounded-md bg-zinc-50 p-3 text-sm">
+          <p className="font-medium text-zinc-900">หมายเหตุ:</p>
+          <ul className="ml-4 list-disc space-y-1 text-zinc-800">
             <li>
               <span className="font-semibold">EnNo</span> = รหัสนิ้วมือ (Fingerprint)
               ที่ใช้ในการเชื่อมโยงกับข้อมูลพนักงาน
             </li>
             <li>
               <span className="font-semibold">DateTime</span> = วันที่และเวลาในรูปแบบ{" "}
-              <code className="rounded bg-blue-100 px-1 py-0.5 font-mono">YYYY/MM/DD HH:mm:ss</code>
+              <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono">YYYY/MM/DD HH:mm:ss</code>
             </li>
             <li>ระบบจะอ่านเฉพาะคอลัมน์ EnNo และ DateTime เท่านั้น</li>
             <li>ข้อมูลที่ซ้ำ (EnNo + Date + Time) จะถูกข้ามอัตโนมัติ</li>
