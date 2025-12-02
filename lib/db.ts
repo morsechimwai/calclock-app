@@ -1,8 +1,29 @@
 import Database from "better-sqlite3"
+import path from "path"
+import { existsSync } from "fs"
 
-const db = new Database("calclock.db")
+/**
+ * Database initialization
+ *
+ * Database file location: <project_root>/calclock.db
+ * The database file will be created automatically if it doesn't exist.
+ * All tables and schema will be created/updated when this module is imported.
+ */
 
+// Get absolute path to database file in project root
+const dbPath = path.join(process.cwd(), "calclock.db")
+
+// Initialize database connection
+// Database file will be created automatically if it doesn't exist
+const db = new Database(dbPath)
 db.pragma("journal_mode = WAL")
+
+// Log database path for debugging (development only)
+if (process.env.NODE_ENV === "development") {
+  const dbExists = existsSync(dbPath)
+  console.log(`[DB] Database location: ${dbPath}`)
+  console.log(`[DB] Database exists: ${dbExists ? "Yes" : "Will be created on first write"}`)
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS employees (
