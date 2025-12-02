@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import FullCalendar from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/daygrid"
 import interactionPlugin from "@fullcalendar/interaction"
@@ -9,6 +9,16 @@ import { getShiftsAction, createOrUpdateShiftAction, deleteShiftAction } from ".
 import type { Shift } from "@/lib/db"
 import { ShiftDialog } from "@/components/shift-dialog"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Calendar as CalendarIcon } from "lucide-react"
 
 // Thai locale configuration
@@ -48,18 +58,62 @@ const thaiMonths = [
   "ธันวาคม",
 ]
 
-// Thai day names
-const thaiDays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"]
-
-
 export default function ShiftPage() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleteDate, setDeleteDate] = useState<string | null>(null)
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string>("")
+  const titleUpdateRef = useRef<string>("")
+  const isUpdatingTitleRef = useRef(false)
 
   useEffect(() => {
     loadShifts()
+  }, [])
+
+  // Setup MutationObserver to prevent title duplication
+  useEffect(() => {
+    const titleEl = document.querySelector(".fc-toolbar-title")
+    if (!titleEl) return
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === "childList" || mutation.type === "characterData") {
+          const currentText = titleEl.textContent?.trim() || ""
+          const expectedText = titleUpdateRef.current
+
+          // Only fix duplication, don't interfere with normal updates
+          if (expectedText && currentText !== expectedText && !isUpdatingTitleRef.current) {
+            // Check if it's a duplication (contains our expected text twice or more)
+            const occurrences = (
+              currentText.match(
+                new RegExp(expectedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")
+              ) || []
+            ).length
+            if (occurrences > 1) {
+              isUpdatingTitleRef.current = true
+              titleEl.textContent = expectedText
+              setTimeout(() => {
+                isUpdatingTitleRef.current = false
+              }, 100)
+            }
+          }
+        }
+      })
+    })
+
+    observer.observe(titleEl, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    })
+
+    return () => {
+      observer.disconnect()
+    }
   }, [])
 
   async function loadShifts() {
@@ -107,21 +161,35 @@ export default function ShiftPage() {
       setDialogOpen(false)
       setSelectedDate(null)
     } else {
-      alert(result.error || "เกิดข้อผิดพลาดในการบันทึกข้อมูล")
+      setErrorMessage(result.error || "เกิดข้อผิดพลาดในการบันทึกข้อมูล")
+      setErrorDialogOpen(true)
     }
   }
 
-  async function handleDeleteShift(date: string) {
-    if (!confirm("คุณต้องการลบข้อมูลวันนี้หรือไม่?")) return
+  function handleDeleteClick(date: string) {
+    setDeleteDate(date)
+    setDeleteDialogOpen(true)
+  }
 
-    const result = await deleteShiftAction(date)
+  async function handleDeleteConfirm() {
+    if (!deleteDate) return
+
+    const result = await deleteShiftAction(deleteDate)
     if (result.success) {
       await loadShifts()
       setDialogOpen(false)
       setSelectedDate(null)
+      setDeleteDialogOpen(false)
+      setDeleteDate(null)
     } else {
-      alert(result.error || "เกิดข้อผิดพลาดในการลบข้อมูล")
+      setErrorMessage(result.error || "เกิดข้อผิดพลาดในการลบข้อมูล")
+      setErrorDialogOpen(true)
+      setDeleteDialogOpen(false)
     }
+  }
+
+  async function handleDeleteShift(date: string) {
+    handleDeleteClick(date)
   }
 
   // Convert shifts to calendar events
@@ -143,9 +211,7 @@ export default function ShiftPage() {
     }
   })
 
-  const selectedShift = selectedDate
-    ? shifts.find((s) => s.date === selectedDate)
-    : null
+  const selectedShift = selectedDate ? shifts.find((s) => s.date === selectedDate) : null
 
   return (
     <div className="space-y-6">
@@ -177,44 +243,6 @@ export default function ShiftPage() {
               center: "title",
               right: "",
             }}
-            datesSet={(arg) => {
-              // Update title and day headers via DOM
-              requestAnimationFrame(() => {
-                // Update title with correct month
-                const titleEl = document.querySelector(".fc-toolbar-title")
-                if (titleEl && arg.start) {
-                  try {
-                    const date = arg.start instanceof Date ? arg.start : new Date(arg.start)
-                    if (!isNaN(date.getTime())) {
-                      const year = date.getFullYear()
-                      const beYear = year + 543
-                      const monthIndex = date.getMonth()
-                      const month = thaiMonths[monthIndex]
-                      const expectedText = `${month} พ.ศ. ${beYear}`
-                      if (titleEl.textContent !== expectedText) {
-                        titleEl.textContent = expectedText
-                      }
-                    }
-                  } catch (e) {
-                    console.error("Error updating title:", e)
-                  }
-                }
-
-                // Update day headers
-                // Since dow: 1 (Monday first), the order should be: จ, อ, พ, พฤ, ศ, ส, อา
-                const thaiDaysOrdered = ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"] // Monday to Sunday
-                const dayHeaders = document.querySelectorAll(".fc-col-header-cell-cushion")
-                dayHeaders.forEach((el, index) => {
-                  // With dow: 1, index 0 = Monday (จ), index 1 = Tuesday (อ), etc.
-                  if (index < thaiDaysOrdered.length) {
-                    const thaiDay = thaiDaysOrdered[index]
-                    if (el.textContent !== thaiDay) {
-                      el.textContent = thaiDay
-                    }
-                  }
-                })
-              })
-            }}
             dayHeaderFormat={(arg) => {
               try {
                 // With dow: 1, FullCalendar will pass dates in order: Mon, Tue, Wed, Thu, Fri, Sat, Sun
@@ -222,7 +250,7 @@ export default function ShiftPage() {
                 let date: Date
                 if (arg && typeof arg === "object") {
                   if ("date" in arg && arg.date) {
-                    date = arg.date instanceof Date ? arg.date : new Date(arg.date)
+                    date = arg.date instanceof Date ? arg.date : new Date(arg.date.toString())
                   } else if (arg instanceof Date) {
                     date = arg
                   } else {
@@ -238,12 +266,12 @@ export default function ShiftPage() {
                 // Map: 1->จ, 2->อ, 3->พ, 4->พฤ, 5->ศ, 6->ส, 0->อา
                 const dayMap: Record<number, string> = {
                   0: "อา", // Sunday
-                  1: "จ",  // Monday
-                  2: "อ",  // Tuesday
-                  3: "พ",  // Wednesday
+                  1: "จ", // Monday
+                  2: "อ", // Tuesday
+                  3: "พ", // Wednesday
                   4: "พฤ", // Thursday
-                  5: "ศ",  // Friday
-                  6: "ส",  // Saturday
+                  5: "ศ", // Friday
+                  6: "ส", // Saturday
                 }
 
                 return dayMap[date.getDay()] || ""
@@ -253,52 +281,24 @@ export default function ShiftPage() {
               }
             }}
             firstDay={0}
-            datesSet={(arg) => {
+            datesSet={() => {
               // Update title and day headers via DOM
+              // Use double requestAnimationFrame to ensure FullCalendar has fully rendered
               requestAnimationFrame(() => {
-                // Update title with correct month
-                // Use a date in the middle of the visible range to determine the month
-                const titleEl = document.querySelector(".fc-toolbar-title")
-                if (titleEl && arg.start && arg.end) {
-                  try {
-                    const startDate = arg.start instanceof Date ? arg.start : new Date(arg.start)
-                    const endDate = arg.end instanceof Date ? arg.end : new Date(arg.end)
-
-                    if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-                      // Calculate middle date
-                      const timeDiff = endDate.getTime() - startDate.getTime()
-                      const midTime = startDate.getTime() + timeDiff / 2
-                      const midDate = new Date(midTime)
-
-                      // Use the 15th of the month to ensure we get the correct month
-                      const displayDate = new Date(midDate.getFullYear(), midDate.getMonth(), 15)
-
-                      const year = displayDate.getFullYear()
-                      const beYear = year + 543
-                      const monthIndex = displayDate.getMonth()
-                      const month = thaiMonths[monthIndex]
-                      const expectedText = `${month} พ.ศ. ${beYear}`
-                      if (titleEl.textContent !== expectedText) {
-                        titleEl.textContent = expectedText
+                requestAnimationFrame(() => {
+                  // Update day headers
+                  // Since dow: 0 (Sunday first), the order should be: อา, จ, อ, พ, พฤ, ศ, ส
+                  const thaiDaysOrdered = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"] // Sunday to Saturday
+                  const dayHeaders = document.querySelectorAll(".fc-col-header-cell-cushion")
+                  dayHeaders.forEach((el, index) => {
+                    // With dow: 0, index 0 = Sunday (อา), index 1 = Monday (จ), etc.
+                    if (index < thaiDaysOrdered.length) {
+                      const thaiDay = thaiDaysOrdered[index]
+                      if (el.textContent !== thaiDay) {
+                        el.textContent = thaiDay
                       }
                     }
-                  } catch (e) {
-                    console.error("Error updating title:", e)
-                  }
-                }
-
-                // Update day headers
-                // Since dow: 0 (Sunday first), the order should be: อา, จ, อ, พ, พฤ, ศ, ส
-                const thaiDaysOrdered = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"] // Sunday to Saturday
-                const dayHeaders = document.querySelectorAll(".fc-col-header-cell-cushion")
-                dayHeaders.forEach((el, index) => {
-                  // With dow: 0, index 0 = Sunday (อา), index 1 = Monday (จ), etc.
-                  if (index < thaiDaysOrdered.length) {
-                    const thaiDay = thaiDaysOrdered[index]
-                    if (el.textContent !== thaiDay) {
-                      el.textContent = thaiDay
-                    }
-                  }
+                  })
                 })
               })
             }}
@@ -316,7 +316,40 @@ export default function ShiftPage() {
         onSave={handleSaveShift}
         onDelete={handleDeleteShift}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบข้อมูล</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณต้องการลบข้อมูลวันนี้หรือไม่? การกระทำนี้ไม่สามารถยกเลิกได้
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              ลบ
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Error Dialog */}
+      <AlertDialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>เกิดข้อผิดพลาด</AlertDialogTitle>
+            <AlertDialogDescription>{errorMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setErrorDialogOpen(false)}>ตกลง</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
-

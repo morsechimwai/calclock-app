@@ -26,11 +26,37 @@ type Props = {
 }
 
 export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete }: Props) {
-  const [checkIn, setCheckIn] = useState("08:00")
-  const [checkOut, setCheckOut] = useState("17:00")
-  const [isHoliday, setIsHoliday] = useState(false)
+  // Initialize state based on shift or defaults
+  const getInitialState = () => {
+    if (shift) {
+      return {
+        checkIn: shift.checkIn.slice(0, 5),
+        checkOut: shift.checkOut.slice(0, 5),
+        isHoliday: shift.isHoliday,
+      }
+    }
+    return {
+      checkIn: "08:00",
+      checkOut: "17:00",
+      isHoliday: false,
+    }
+  }
 
+  const [checkIn, setCheckIn] = useState(() => getInitialState().checkIn)
+  const [checkOut, setCheckOut] = useState(() => getInitialState().checkOut)
+  const [isHoliday, setIsHoliday] = useState(() => getInitialState().isHoliday)
+
+  // Reset form when dialog opens/closes or shift changes
   useEffect(() => {
+    if (!open) {
+      // Reset when dialog closes
+      setCheckIn("08:00")
+      setCheckOut("17:00")
+      setIsHoliday(false)
+      return
+    }
+
+    // Update when dialog opens with shift data
     if (shift) {
       setCheckIn(shift.checkIn.slice(0, 5))
       setCheckOut(shift.checkOut.slice(0, 5))
@@ -40,18 +66,17 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
       setCheckOut("17:00")
       setIsHoliday(false)
     }
-  }, [shift, open])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, shift?.date, shift?.checkIn, shift?.checkOut, shift?.isHoliday])
 
   function handleSubmit() {
     if (!date) return
 
     // Convert HH:MM to HH:MM:SS
-    const checkInTime = checkIn.includes(":") && checkIn.split(":").length === 2
-      ? `${checkIn}:00`
-      : checkIn
-    const checkOutTime = checkOut.includes(":") && checkOut.split(":").length === 2
-      ? `${checkOut}:00`
-      : checkOut
+    const checkInTime =
+      checkIn.includes(":") && checkIn.split(":").length === 2 ? `${checkIn}:00` : checkIn
+    const checkOutTime =
+      checkOut.includes(":") && checkOut.split(":").length === 2 ? `${checkOut}:00` : checkOut
 
     onSave({
       date,
@@ -64,6 +89,14 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
   function handleDelete() {
     if (!date) return
     onDelete(date)
+  }
+
+  function handleCancel() {
+    // Reset form before closing
+    setCheckIn("08:00")
+    setCheckOut("17:00")
+    setIsHoliday(false)
+    onOpenChange(false)
   }
 
   if (!date) return null
@@ -135,7 +168,7 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
               ลบ
             </Button>
           )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={handleCancel}>
             ยกเลิก
           </Button>
           <Button onClick={handleSubmit}>บันทึก</Button>
@@ -144,4 +177,3 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
     </Dialog>
   )
 }
-
