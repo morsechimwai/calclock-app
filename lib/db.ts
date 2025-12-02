@@ -110,6 +110,11 @@ db.exec(`
   );
 `)
 
+// Add enable_overtime column if it doesn't exist
+try {
+  db.exec(`ALTER TABLE shifts ADD COLUMN enable_overtime INTEGER NOT NULL DEFAULT 1;`)
+} catch {}
+
 // Create index for faster lookups
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_fingerprints_fingerprint ON fingerprints(fingerprint);
@@ -760,6 +765,7 @@ export type Shift = {
   checkIn: string
   checkOut: string
   isHoliday: boolean
+  enableOvertime: boolean
   createdAt: string
   updatedAt: string
 }
@@ -773,18 +779,20 @@ export function getShift(date: string): Shift | null {
         check_in as checkIn,
         check_out as checkOut,
         is_holiday as isHoliday,
+        enable_overtime as enableOvertime,
         created_at as createdAt,
         updated_at as updatedAt
        FROM shifts
        WHERE date = ?`
     )
-    .get(date) as (Shift & { isHoliday: number }) | undefined
+    .get(date) as (Shift & { isHoliday: number; enableOvertime: number }) | undefined
 
   if (!row) return null
 
   return {
     ...row,
     isHoliday: Boolean(row.isHoliday),
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : true,
   }
 }
 
@@ -797,17 +805,19 @@ export function getShiftsByDateRange(startDate: string, endDate: string): Shift[
         check_in as checkIn,
         check_out as checkOut,
         is_holiday as isHoliday,
+        enable_overtime as enableOvertime,
         created_at as createdAt,
         updated_at as updatedAt
        FROM shifts
        WHERE date >= ? AND date <= ?
        ORDER BY date ASC`
     )
-    .all(startDate, endDate) as Array<Shift & { isHoliday: number }>
+    .all(startDate, endDate) as Array<Shift & { isHoliday: number; enableOvertime: number }>
 
   return rows.map((row) => ({
     ...row,
     isHoliday: Boolean(row.isHoliday),
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : true,
   }))
 }
 
@@ -820,16 +830,18 @@ export function getAllShifts(): Shift[] {
         check_in as checkIn,
         check_out as checkOut,
         is_holiday as isHoliday,
+        enable_overtime as enableOvertime,
         created_at as createdAt,
         updated_at as updatedAt
        FROM shifts
        ORDER BY date ASC`
     )
-    .all() as Array<Shift & { isHoliday: number }>
+    .all() as Array<Shift & { isHoliday: number; enableOvertime: number }>
 
   return rows.map((row) => ({
     ...row,
     isHoliday: Boolean(row.isHoliday),
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : true,
   }))
 }
 
@@ -838,6 +850,7 @@ export function createOrUpdateShift(input: {
   checkIn?: string
   checkOut?: string
   isHoliday?: boolean
+  enableOvertime?: boolean
 }): Shift {
   const existing = getShift(input.date)
 
@@ -858,6 +871,10 @@ export function createOrUpdateShift(input: {
       updates.push("is_holiday = @isHoliday")
       params.isHoliday = input.isHoliday ? 1 : 0
     }
+    if (input.enableOvertime !== undefined) {
+      updates.push("enable_overtime = @enableOvertime")
+      params.enableOvertime = input.enableOvertime ? 1 : 0
+    }
 
     if (updates.length > 0) {
       updates.push("updated_at = datetime('now')")
@@ -876,6 +893,7 @@ export function createOrUpdateShift(input: {
         check_in,
         check_out,
         is_holiday,
+        enable_overtime,
         created_at,
         updated_at
       )
@@ -884,6 +902,7 @@ export function createOrUpdateShift(input: {
         @checkIn,
         @checkOut,
         @isHoliday,
+        @enableOvertime,
         datetime('now'),
         datetime('now')
       )`
@@ -894,6 +913,7 @@ export function createOrUpdateShift(input: {
       checkIn: input.checkIn || "08:00:00",
       checkOut: input.checkOut || "17:00:00",
       isHoliday: input.isHoliday ? 1 : 0,
+      enableOvertime: input.enableOvertime !== undefined ? (input.enableOvertime ? 1 : 0) : 1,
     })
 
     return getShift(input.date)!

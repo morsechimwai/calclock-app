@@ -21,7 +21,13 @@ type Props = {
   onOpenChange: (open: boolean) => void
   date: string | null
   shift: Shift | null | undefined
-  onSave: (data: { date: string; checkIn: string; checkOut: string; isHoliday: boolean }) => void
+  onSave: (data: {
+    date: string
+    checkIn: string
+    checkOut: string
+    isHoliday: boolean
+    enableOvertime: boolean
+  }) => void
   onDelete: (date: string) => void
 }
 
@@ -33,18 +39,21 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
         checkIn: shift.checkIn.slice(0, 5),
         checkOut: shift.checkOut.slice(0, 5),
         isHoliday: shift.isHoliday,
+        enableOvertime: shift.enableOvertime !== undefined ? shift.enableOvertime : true,
       }
     }
     return {
       checkIn: "08:00",
       checkOut: "17:00",
       isHoliday: false,
+      enableOvertime: true,
     }
   }
 
   const [checkIn, setCheckIn] = useState(() => getInitialState().checkIn)
   const [checkOut, setCheckOut] = useState(() => getInitialState().checkOut)
   const [isHoliday, setIsHoliday] = useState(() => getInitialState().isHoliday)
+  const [enableOvertime, setEnableOvertime] = useState(() => getInitialState().enableOvertime)
 
   // Reset form when dialog opens/closes or shift changes
   useEffect(() => {
@@ -53,6 +62,7 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
       setCheckIn("08:00")
       setCheckOut("17:00")
       setIsHoliday(false)
+      setEnableOvertime(true)
       return
     }
 
@@ -61,13 +71,15 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
       setCheckIn(shift.checkIn.slice(0, 5))
       setCheckOut(shift.checkOut.slice(0, 5))
       setIsHoliday(shift.isHoliday)
+      setEnableOvertime(shift.enableOvertime !== undefined ? shift.enableOvertime : true)
     } else {
       setCheckIn("08:00")
       setCheckOut("17:00")
       setIsHoliday(false)
+      setEnableOvertime(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, shift?.date, shift?.checkIn, shift?.checkOut, shift?.isHoliday])
+  }, [open, shift?.date, shift?.checkIn, shift?.checkOut, shift?.isHoliday, shift?.enableOvertime])
 
   function handleSubmit() {
     if (!date) return
@@ -83,6 +95,7 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
       checkIn: checkInTime,
       checkOut: checkOutTime,
       isHoliday,
+      enableOvertime,
     })
   }
 
@@ -96,6 +109,7 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
     setCheckIn("08:00")
     setCheckOut("17:00")
     setIsHoliday(false)
+    setEnableOvertime(true)
     onOpenChange(false)
   }
 
@@ -153,6 +167,20 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
               value={checkOut}
               onChange={(e) => setCheckOut(e.target.value)}
             />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="enable-overtime"
+              checked={enableOvertime}
+              onCheckedChange={(checked) => setEnableOvertime(checked === true)}
+            />
+            <Label
+              htmlFor="enable-overtime"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              เปิดล่วงเวลา (ถ้าปิดจะนับจบแค่เวลาเลิกงานที่กำหนดไว้)
+            </Label>
           </div>
         </div>
 

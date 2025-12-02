@@ -24,6 +24,7 @@ export async function createOrUpdateShiftAction(input: {
   checkIn?: string
   checkOut?: string
   isHoliday?: boolean
+  enableOvertime?: boolean
 }): Promise<{ success: boolean; data?: Shift; error?: string }> {
   try {
     const data = createOrUpdateShift(input)

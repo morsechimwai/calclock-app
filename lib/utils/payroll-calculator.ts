@@ -32,15 +32,20 @@ export function minutesToHours(minutes: number): number {
 export function getShiftForDate(
   date: string,
   shifts: Map<string, Shift>
-): { checkIn: string; checkOut: string; isHoliday: boolean } {
+): { checkIn: string; checkOut: string; isHoliday: boolean; enableOvertime: boolean } {
   const shift = shifts.get(date)
   if (shift) {
     // Extract HH:MM from HH:MM:SS format
     const checkIn = shift.checkIn.slice(0, 5)
     const checkOut = shift.checkOut.slice(0, 5)
-    return { checkIn, checkOut, isHoliday: shift.isHoliday }
+    return {
+      checkIn,
+      checkOut,
+      isHoliday: shift.isHoliday,
+      enableOvertime: shift.enableOvertime !== undefined ? shift.enableOvertime : true,
+    }
   }
-  return { checkIn: "08:00", checkOut: "17:00", isHoliday: false }
+  return { checkIn: "08:00", checkOut: "17:00", isHoliday: false, enableOvertime: true }
 }
 
 // Calculate effective check-in time based on late arrival rules
@@ -164,7 +169,8 @@ export function calculateWorkDaysAndOT(
   shiftCheckOut: string,
   isHoliday: boolean,
   isConsecutiveDay7: boolean,
-  times: string[]
+  times: string[],
+  enableOvertime: boolean = true
 ): {
   workDays: number
   otHours: number
@@ -182,9 +188,15 @@ export function calculateWorkDaysAndOT(
 
     const effectiveCheckInMinutes = timeToMinutes(effectiveCheckIn)
     const actualCheckOutMinutes = timeToMinutes(actualCheckOut)
+    const shiftCheckOutMinutes = timeToMinutes(shiftCheckOut)
+
+    // If overtime is disabled, use shift check-out time if actual check-out is later
+    const effectiveCheckOutMinutes = enableOvertime
+      ? actualCheckOutMinutes
+      : Math.min(actualCheckOutMinutes, shiftCheckOutMinutes)
 
     // Calculate total work hours
-    let totalMinutes = actualCheckOutMinutes - effectiveCheckInMinutes
+    let totalMinutes = effectiveCheckOutMinutes - effectiveCheckInMinutes
 
     // Check if worked 8+ hours for lunch break
     const hasLunch = totalMinutes >= STANDARD_WORK_HOURS * 60
@@ -224,9 +236,15 @@ export function calculateWorkDaysAndOT(
 
     const effectiveCheckInMinutes = timeToMinutes(effectiveCheckIn)
     const actualCheckOutMinutes = timeToMinutes(actualCheckOut)
+    const shiftCheckOutMinutes = timeToMinutes(shiftCheckOut)
+
+    // If overtime is disabled, use shift check-out time if actual check-out is later
+    const effectiveCheckOutMinutes = enableOvertime
+      ? actualCheckOutMinutes
+      : Math.min(actualCheckOutMinutes, shiftCheckOutMinutes)
 
     // Calculate total work hours (without subtracting lunch break for OT calculation)
-    const totalMinutesWithoutLunch = actualCheckOutMinutes - effectiveCheckInMinutes
+    const totalMinutesWithoutLunch = effectiveCheckOutMinutes - effectiveCheckInMinutes
 
     // Check if worked 8+ hours for lunch break
     const hasLunch = totalMinutesWithoutLunch >= STANDARD_WORK_HOURS * 60
@@ -260,8 +278,14 @@ export function calculateWorkDaysAndOT(
   const actualCheckOutMinutes = timeToMinutes(actualCheckOut)
   const shiftCheckOutMinutes = timeToMinutes(shiftCheckOut)
 
+  // If overtime is disabled, use shift check-out time if actual check-out is later
+  const effectiveCheckOutMinutes = enableOvertime
+    ? actualCheckOutMinutes
+    : Math.min(actualCheckOutMinutes, shiftCheckOutMinutes)
+  const effectiveCheckOut = enableOvertime ? actualCheckOut : minutesToTime(effectiveCheckOutMinutes)
+
   // Calculate total work hours
-  const totalMinutesWithoutLunch = actualCheckOutMinutes - effectiveCheckInMinutes
+  const totalMinutesWithoutLunch = effectiveCheckOutMinutes - effectiveCheckInMinutes
 
   // Check if worked 8+ hours for lunch break (always count if 8+ hours, regardless of actual lunch break)
   const hasLunch = totalMinutesWithoutLunch >= STANDARD_WORK_HOURS * 60

@@ -188,7 +188,8 @@ export function PayrollTable({ data, onRefresh }: Props) {
                     shift.checkOut,
                     shift.isHoliday,
                     isConsecutive7,
-                    timeStrings
+                    timeStrings,
+                    shift.enableOvertime
                   )
                   employeeWorkDays += workDays
                   employeeOTHours += otHours
@@ -231,19 +232,28 @@ export function PayrollTable({ data, onRefresh }: Props) {
                           shift.checkOut,
                           shift.isHoliday,
                           isConsecutive7,
-                          timeStrings
+                          timeStrings,
+                          shift.enableOvertime
                         )
                       : { workDays: 0, otHours: 0, lunchBreakOT: 0, isLateWarning: false }
 
                     // Check if this is a holiday
                     const isHoliday = shift.isHoliday
 
+                    // Check if OT is from enableOvertime (not consecutive day 7 or holiday)
+                    const hasOvertimeFromEnableOT =
+                      hasTwoTimes &&
+                      shift.enableOvertime &&
+                      otHours > 0 &&
+                      !isConsecutive7 &&
+                      !isHoliday
+
                     return (
                       <TableRow
                         key={`${employee.fingerprint}-${entry.date}-${entryIndex}`}
                         className={`border-b border-zinc-200 ${
                           isConsecutive7
-                            ? "bg-blue-50 hover:bg-blue-100"
+                            ? "bg-green-50 hover:bg-green-100"
                             : isHoliday
                             ? "bg-amber-50 hover:bg-amber-100"
                             : "hover:bg-zinc-50/50"
@@ -260,10 +270,14 @@ export function PayrollTable({ data, onRefresh }: Props) {
                         <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700">
                           <div className="flex items-center gap-2">
                             <span>{formattedDate}</span>
-                            {(isConsecutive7 || isHoliday) && (
+                            {(isConsecutive7 || isHoliday || hasOvertimeFromEnableOT) && (
                               <span
                                 className={`px-2 py-0.5 rounded text-white text-xs font-semibold ${
-                                  isConsecutive7 ? "bg-blue-600" : "bg-amber-600"
+                                  isConsecutive7
+                                    ? "bg-green-600"
+                                    : isHoliday
+                                    ? "bg-amber-600"
+                                    : "bg-blue-600"
                                 }`}
                               >
                                 OT

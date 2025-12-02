@@ -37,23 +37,49 @@ export default function PayrollPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">คำนวณเงินเดือน</h1>
-        <p className="text-base text-zinc-600">เลือกช่วงวันที่ที่ต้องการ แล้วกดโหลดข้อมูล</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">คำนวณเวลาเข้างาน</h1>
+        <p className="text-base text-zinc-600">เลือกช่วงวันที่ที่ต้องการ แล้วกดคำนวณเวลาเข้างาน</p>
       </div>
 
-      <div className="flex items-end gap-4">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="date-range">ช่วงวันที่</Label>
-          <PayrollDateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 bg-white p-4">
+          <span className="text-sm font-medium text-zinc-700">คำอธิบาย OT:</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-green-600">
+                OT
+              </span>
+              <span className="text-sm text-zinc-600">OT วันที่ 7</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-blue-600">
+                OT
+              </span>
+              <span className="text-sm text-zinc-600">OT จากเปิดล่วงเวลา</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-white text-xs font-semibold bg-amber-600">
+                OT
+              </span>
+              <span className="text-sm text-zinc-600">OT วันหยุดนักขัตฤกษ์</span>
+            </div>
+          </div>
         </div>
 
-        <Button
-          onClick={handleLoadData}
-          disabled={!dateRange?.from || !dateRange?.to || isPending}
-          className="px-4 py-2 text-base font-semibold"
-        >
-          {isPending ? "กำลังคำนวณ..." : "คำนวณเงินเดือน"}
-        </Button>
+        <div className="flex items-end gap-4">
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="date-range">ช่วงวันที่</Label>
+            <PayrollDateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+          </div>
+
+          <Button
+            onClick={handleLoadData}
+            disabled={!dateRange?.from || !dateRange?.to || isPending}
+            className="px-4 py-2 text-base font-semibold"
+          >
+            {isPending ? "กำลังคำนวณ..." : "คำนวณเวลาเข้างาน"}
+          </Button>
+        </div>
       </div>
 
       {payrollData.length > 0 && (

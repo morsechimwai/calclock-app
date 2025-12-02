@@ -13,7 +13,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "หน้าหลัก", icon: LayoutDashboard },
-  { href: "/payroll", label: "คำนวณเงินเดือน", icon: Calculator },
+  { href: "/payroll", label: "สรุปเวลาเข้างาน", icon: Calculator },
   { href: "/insert", label: "นำเข้าบันทึกเวลา", icon: Fingerprint },
   { href: "/shift", label: "จัดการเวลาเข้างาน", icon: Calendar },
   { href: "/employee", label: "จัดการพนักงาน", icon: Users },

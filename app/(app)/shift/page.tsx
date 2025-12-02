@@ -159,12 +159,14 @@ export default function ShiftPage() {
     checkIn: string
     checkOut: string
     isHoliday: boolean
+    enableOvertime: boolean
   }) {
     const result = await createOrUpdateShiftAction({
       date: data.date,
       checkIn: data.checkIn,
       checkOut: data.checkOut,
       isHoliday: data.isHoliday,
+      enableOvertime: data.enableOvertime,
     })
 
     if (result.success && result.data) {
@@ -222,13 +224,30 @@ export default function ShiftPage() {
   // Convert shifts to calendar events
   const events = shifts.flatMap((shift) => {
     const isHoliday = shift.isHoliday
+    const enableOvertime = shift.enableOvertime !== undefined ? shift.enableOvertime : true
     const checkInTime = shift.checkIn.slice(0, 5)
     const checkOutTime = shift.checkOut.slice(0, 5)
     const timeText = `${checkInTime} - ${checkOutTime}`
 
     if (isHoliday) {
-      // For holidays, create 2 separate events
-      return [
+      // For holidays, create events: holiday label + time + OT indicator (if enabled)
+      const holidayEvents: Array<{
+        id: string
+        title: string
+        start: string
+        allDay: boolean
+        backgroundColor: string
+        borderColor: string
+        textColor: string
+        extendedProps: {
+          checkIn: string
+          checkOut: string
+          isHoliday: boolean
+          isHolidayLabel?: boolean
+          isHolidayTime?: boolean
+          isOT?: boolean
+        }
+      }> = [
         {
           id: `${shift.id}-holiday-label`,
           title: "วันหยุดนักขัตฤกษ์",
@@ -260,23 +279,81 @@ export default function ShiftPage() {
           },
         },
       ]
+
+      // Add OT indicator if overtime is enabled
+      if (enableOvertime) {
+        holidayEvents.push({
+          id: `${shift.id}-holiday-ot`,
+          title: "OT",
+          start: shift.date,
+          allDay: true,
+          backgroundColor: "rgb(219 234 254)", // blue-100
+          borderColor: "rgb(96 165 250)", // blue-400
+          textColor: "rgb(30 64 175)", // blue-800
+          extendedProps: {
+            checkIn: checkInTime,
+            checkOut: checkOutTime,
+            isHoliday: true,
+            isOT: true,
+          },
+        })
+      }
+
+      return holidayEvents
     }
 
-    // For work days, single event
-    return {
-      id: shift.id.toString(),
-      title: timeText,
-      start: shift.date,
-      allDay: true,
-      backgroundColor: "rgb(244 244 245)", // zinc-100 for work
-      borderColor: "rgb(228 228 231)", // zinc-200
-      textColor: "rgb(24 24 27)", // zinc-900
+    // For work days, create events: time + OT indicator (if enabled)
+    const workEvents: Array<{
+      id: string
+      title: string
+      start: string
+      allDay: boolean
+      backgroundColor: string
+      borderColor: string
+      textColor: string
       extendedProps: {
-        checkIn: checkInTime,
-        checkOut: checkOutTime,
-        isHoliday: false,
+        checkIn: string
+        checkOut: string
+        isHoliday: boolean
+        isOT?: boolean
+      }
+    }> = [
+      {
+        id: shift.id.toString(),
+        title: timeText,
+        start: shift.date,
+        allDay: true,
+        backgroundColor: "rgb(244 244 245)", // zinc-100 for work
+        borderColor: "rgb(228 228 231)", // zinc-200
+        textColor: "rgb(24 24 27)", // zinc-900
+        extendedProps: {
+          checkIn: checkInTime,
+          checkOut: checkOutTime,
+          isHoliday: false,
+        },
       },
+    ]
+
+    // Add OT indicator if overtime is enabled
+    if (enableOvertime) {
+      workEvents.push({
+        id: `${shift.id}-ot`,
+        title: "OT",
+        start: shift.date,
+        allDay: true,
+        backgroundColor: "rgb(219 234 254)", // blue-100
+        borderColor: "rgb(96 165 250)", // blue-400
+        textColor: "rgb(30 64 175)", // blue-800
+        extendedProps: {
+          checkIn: checkInTime,
+          checkOut: checkOutTime,
+          isHoliday: false,
+          isOT: true,
+        },
+      })
     }
+
+    return workEvents
   })
 
   const selectedShift = selectedDate ? shifts.find((s) => s.date === selectedDate) : null
@@ -307,12 +384,13 @@ export default function ShiftPage() {
             eventClick={handleEventClick}
             locale={thaiLocale}
             eventContent={(eventInfo) => {
-              const { checkIn, checkOut, isHolidayLabel, isHolidayTime } = eventInfo.event
+              const { checkIn, checkOut, isHolidayLabel, isHolidayTime, isOT } = eventInfo.event
                 .extendedProps as {
                 checkIn?: string
                 checkOut?: string
                 isHolidayLabel?: boolean
                 isHolidayTime?: boolean
+                isOT?: boolean
               }
               const timeText =
                 checkIn && checkOut ? `${checkIn} - ${checkOut}` : eventInfo.event.title
@@ -323,6 +401,17 @@ export default function ShiftPage() {
                   html: `
                     <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
                       <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">วันหยุดนักขัตฤกษ์</span>
+                    </div>
+                  `,
+                }
+              }
+
+              // OT indicator event (blue)
+              if (isOT) {
+                return {
+                  html: `
+                    <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
+                      <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">OT</span>
                     </div>
                   `,
                 }
