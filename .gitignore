@@ -1,5 +1,24 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# Database
+calclock.db
+calclock.db-shm
+calclock.db-wal
+
+# dummy
+dummy
+
+# Log Time
+logtime.db
+# Cursor
+.cursor/
+
+# VS Code
+.vscode/
+
+# Cursor Rules
+.cursorrules
+
 # dependencies
 /node_modules
 /.pnp
