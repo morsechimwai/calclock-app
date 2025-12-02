@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
-import { LayoutDashboard, Calculator, Users, Fingerprint } from "lucide-react"
+import { LayoutDashboard, Calculator, Users, Fingerprint, Calendar } from "lucide-react"
 
 type NavItem = {
   href: string
@@ -14,8 +14,9 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "หน้าหลัก", icon: LayoutDashboard },
   { href: "/payroll", label: "คำนวณเงินเดือน", icon: Calculator },
-  { href: "/employee", label: "จัดการพนักงาน", icon: Users },
   { href: "/insert", label: "นำเข้าบันทึกเวลา", icon: Fingerprint },
+  { href: "/shift", label: "จัดการเวลาเข้างาน", icon: Calendar },
+  { href: "/employee", label: "จัดการพนักงาน", icon: Users },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -24,12 +25,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-zinc-100 text-zinc-900">
       <aside className="hidden w-60 flex-col border-r border-zinc-200 bg-white px-4 py-6 md:flex">
-        <div className="mb-6 flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 text-base font-semibold text-white">
+        <div className="mb-6 flex items-start gap-2">
+          <div className="flex size-10 min-w-10 items-center justify-center rounded-xl bg-zinc-900 text-base font-semibold text-white">
             CC
           </div>
           <div>
-            <div className="text-lg font-semibold tracking-tight">CalClock</div>
+            <div>
+              <div className="text-lg font-semibold tracking-tight">CalClock</div>
+            </div>
+
+            <div className="text-xs text-zinc-500">NTC Wood Chipper Biomass Co., Ltd.</div>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import React, { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
 import type { PayrollData } from "@/app/(app)/payroll/actions"
@@ -251,11 +251,14 @@ export function PayrollTable({ data, onRefresh }: Props) {
               let employeeOTHours = 0
 
               employee.entries.forEach((entry) => {
-                const timeStrings = entry.times.map((t) => t.time)
-                const { checkIn, checkOut } = calculateWorkHours(timeStrings)
-                const { workDays, otHours } = calculateWorkDaysAndOT(checkIn, checkOut, timeStrings)
-                employeeWorkDays += workDays
-                employeeOTHours += otHours
+                // Only calculate if there are exactly 2 time entries
+                if (entry.times.length === 2) {
+                  const timeStrings = entry.times.map((t) => t.time)
+                  const { checkIn, checkOut } = calculateWorkHours(timeStrings)
+                  const { workDays, otHours } = calculateWorkDaysAndOT(checkIn, checkOut, timeStrings)
+                  employeeWorkDays += workDays
+                  employeeOTHours += otHours
+                }
               })
 
               // Round totals to 1 decimal place
@@ -263,7 +266,7 @@ export function PayrollTable({ data, onRefresh }: Props) {
               employeeOTHours = Math.round(employeeOTHours * 10) / 10
 
               return (
-                <>
+                <React.Fragment key={employee.fingerprint}>
                   {employee.entries.map((entry, entryIndex) => {
                     // Parse date string (YYYY-MM-DD) to Date object
                     const [year, month, day] = entry.date.split("-").map(Number)
@@ -276,16 +279,15 @@ export function PayrollTable({ data, onRefresh }: Props) {
                       return { time: `${hour}:${minute}`, id: t.id, isManual: t.isManual }
                     })
 
-                    // Calculate work hours (use original time strings)
+                    // Only calculate if there are exactly 2 time entries
+                    const hasTwoTimes = entry.times.length === 2
                     const timeStrings = entry.times.map((t) => t.time)
                     const { checkIn, checkOut } = calculateWorkHours(timeStrings)
 
-                    // Calculate work days and OT hours
-                    const { workDays, otHours } = calculateWorkDaysAndOT(
-                      checkIn,
-                      checkOut,
-                      timeStrings
-                    )
+                    // Calculate work days and OT hours (only if 2 times)
+                    const { workDays, otHours } = hasTwoTimes
+                      ? calculateWorkDaysAndOT(checkIn, checkOut, timeStrings)
+                      : { workDays: 0, otHours: 0 }
 
                     return (
                       <TableRow
@@ -377,10 +379,10 @@ export function PayrollTable({ data, onRefresh }: Props) {
                           </div>
                         </TableCell>
                         <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700 text-center font-mono">
-                          {workDays.toFixed(1)}
+                          {hasTwoTimes ? workDays.toFixed(1) : "-"}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-sm text-zinc-700 text-center font-mono">
-                          {otHours > 0 ? otHours.toFixed(1) : "0"}
+                          {hasTwoTimes ? (otHours > 0 ? otHours.toFixed(1) : "0") : "-"}
                         </TableCell>
                       </TableRow>
                     )
@@ -400,7 +402,7 @@ export function PayrollTable({ data, onRefresh }: Props) {
                       {employeeOTHours.toFixed(1)}
                     </TableCell>
                   </TableRow>
-                </>
+                </React.Fragment>
               )
             })}
           </TableBody>

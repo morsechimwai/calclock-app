@@ -97,9 +97,26 @@ try {
   db.exec(`ALTER TABLE fingerprints ADD COLUMN is_manual INTEGER NOT NULL DEFAULT 0;`)
 } catch {}
 
+// Create shifts table for work schedule
+db.exec(`
+  CREATE TABLE IF NOT EXISTS shifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE,
+    check_in TEXT NOT NULL DEFAULT '08:00:00',
+    check_out TEXT NOT NULL DEFAULT '17:00:00',
+    is_holiday INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`)
+
 // Create index for faster lookups
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_fingerprints_fingerprint ON fingerprints(fingerprint);
+`)
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_shifts_date ON shifts(date);
 `)
 
 db.exec(`
@@ -734,4 +751,155 @@ export function deleteAllFingerprints(): number {
   const stmt = db.prepare(`DELETE FROM fingerprints`)
   const result = stmt.run()
   return result.changes
+}
+
+// Shift types and functions
+export type Shift = {
+  id: number
+  date: string
+  checkIn: string
+  checkOut: string
+  isHoliday: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export function getShift(date: string): Shift | null {
+  const row = db
+    .prepare(
+      `SELECT
+        id,
+        date,
+        check_in as checkIn,
+        check_out as checkOut,
+        is_holiday as isHoliday,
+        created_at as createdAt,
+        updated_at as updatedAt
+       FROM shifts
+       WHERE date = ?`
+    )
+    .get(date) as (Shift & { isHoliday: number }) | undefined
+
+  if (!row) return null
+
+  return {
+    ...row,
+    isHoliday: Boolean(row.isHoliday),
+  }
+}
+
+export function getShiftsByDateRange(startDate: string, endDate: string): Shift[] {
+  const rows = db
+    .prepare(
+      `SELECT
+        id,
+        date,
+        check_in as checkIn,
+        check_out as checkOut,
+        is_holiday as isHoliday,
+        created_at as createdAt,
+        updated_at as updatedAt
+       FROM shifts
+       WHERE date >= ? AND date <= ?
+       ORDER BY date ASC`
+    )
+    .all(startDate, endDate) as Array<Shift & { isHoliday: number }>
+
+  return rows.map((row) => ({
+    ...row,
+    isHoliday: Boolean(row.isHoliday),
+  }))
+}
+
+export function getAllShifts(): Shift[] {
+  const rows = db
+    .prepare(
+      `SELECT
+        id,
+        date,
+        check_in as checkIn,
+        check_out as checkOut,
+        is_holiday as isHoliday,
+        created_at as createdAt,
+        updated_at as updatedAt
+       FROM shifts
+       ORDER BY date ASC`
+    )
+    .all() as Array<Shift & { isHoliday: number }>
+
+  return rows.map((row) => ({
+    ...row,
+    isHoliday: Boolean(row.isHoliday),
+  }))
+}
+
+export function createOrUpdateShift(input: {
+  date: string
+  checkIn?: string
+  checkOut?: string
+  isHoliday?: boolean
+}): Shift {
+  const existing = getShift(input.date)
+
+  if (existing) {
+    // Update existing shift
+    const updates: string[] = []
+    const params: Record<string, unknown> = { date: input.date }
+
+    if (input.checkIn !== undefined) {
+      updates.push("check_in = @checkIn")
+      params.checkIn = input.checkIn
+    }
+    if (input.checkOut !== undefined) {
+      updates.push("check_out = @checkOut")
+      params.checkOut = input.checkOut
+    }
+    if (input.isHoliday !== undefined) {
+      updates.push("is_holiday = @isHoliday")
+      params.isHoliday = input.isHoliday ? 1 : 0
+    }
+
+    if (updates.length > 0) {
+      updates.push("updated_at = datetime('now')")
+      const stmt = db.prepare(
+        `UPDATE shifts SET ${updates.join(", ")} WHERE date = @date`
+      )
+      stmt.run(params)
+    }
+
+    return getShift(input.date)!
+  } else {
+    // Create new shift
+    const stmt = db.prepare(
+      `INSERT INTO shifts (
+        date,
+        check_in,
+        check_out,
+        is_holiday,
+        created_at,
+        updated_at
+      )
+       VALUES (
+        @date,
+        @checkIn,
+        @checkOut,
+        @isHoliday,
+        datetime('now'),
+        datetime('now')
+      )`
+    )
+
+    stmt.run({
+      date: input.date,
+      checkIn: input.checkIn || "08:00:00",
+      checkOut: input.checkOut || "17:00:00",
+      isHoliday: input.isHoliday ? 1 : 0,
+    })
+
+    return getShift(input.date)!
+  }
+}
+
+export function deleteShift(date: string): void {
+  db.prepare(`DELETE FROM shifts WHERE date = ?`).run(date)
 }
