@@ -21,15 +21,15 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
+import { TimePicker } from "@/components/ui/time-picker"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -243,9 +243,7 @@ export function PayrollTable({ data, onRefresh }: Props) {
                     // Check if OT is from enableOvertime (not consecutive day 7 or holiday)
                     // Show blue OT tag only when enableOvertime is explicitly enabled
                     const hasOvertimeFromEnableOT =
-                      shift.enableOvertime &&
-                      !isConsecutive7 &&
-                      !isHoliday
+                      shift.enableOvertime && !isConsecutive7 && !isHoliday
 
                     return (
                       <TableRow
@@ -414,36 +412,61 @@ export function PayrollTable({ data, onRefresh }: Props) {
 
       {/* Dialog for adding time */}
       <Dialog open={addTimeDialogOpen} onOpenChange={setAddTimeDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>เพิ่มเวลาใหม่</DialogTitle>
+            <DialogTitle className="text-xl font-bold">เพิ่มเวลาใหม่</DialogTitle>
             {selectedEntry && (
-              <div className="space-y-1 mt-2">
+              <DialogDescription className="space-y-1 pt-2">
                 <div className="text-sm font-medium text-zinc-900">
                   พนักงาน:{" "}
                   {selectedEntry.employeeName || `ไม่พบข้อมูล (รหัส: ${selectedEntry.fingerprint})`}
                 </div>
-                <div className="text-sm text-zinc-600">วันที่: {selectedEntry.formattedDate}</div>
-              </div>
+                <div className="text-sm text-zinc-500">วันที่: {selectedEntry.formattedDate}</div>
+              </DialogDescription>
             )}
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="time-picker" className="px-1">
-                Time
+
+          <div className="space-y-6 py-2">
+            {/* Time Picker */}
+            <div className="rounded-lg bg-zinc-50 p-5">
+              <TimePicker label="เวลา" value={newTime} onChange={setNewTime} id="time-picker" />
+            </div>
+
+            {/* Quick Time Selection */}
+            <div className="space-y-3">
+              <Label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">
+                เลือกเวลาด่วน
               </Label>
-              <Input
-                type="time"
-                id="time-picker"
-                step="60"
-                value={newTime}
-                onChange={(e) => setNewTime(e.target.value)}
-                className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-                disabled={isPending}
-              />
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  "07:00",
+                  "08:00",
+                  "10:30",
+                  "12:00",
+                  "16:00",
+                  "17:00",
+                  "18:00",
+                  "19:00",
+                  "20:00",
+                ].map((time) => (
+                  <Button
+                    key={time}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNewTime(time)}
+                    className="hover:bg-zinc-100 font-medium font-mono"
+                    disabled={isPending}
+                  >
+                    {time}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
-          <DialogFooter>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => {
@@ -452,13 +475,18 @@ export function PayrollTable({ data, onRefresh }: Props) {
                 setNewTime("10:30")
               }}
               disabled={isPending}
+              className="min-w-[100px]"
             >
               ยกเลิก
             </Button>
-            <Button onClick={handleSubmitAddTime} disabled={isPending || !newTime.trim()}>
+            <Button
+              onClick={handleSubmitAddTime}
+              disabled={isPending || !newTime.trim()}
+              className="min-w-[100px] bg-zinc-900 hover:bg-zinc-800"
+            >
               {isPending ? "กำลังเพิ่ม..." : "เพิ่มเวลา"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

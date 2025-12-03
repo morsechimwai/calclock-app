@@ -426,7 +426,7 @@ export default function ShiftPage() {
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12 6 12 12 16 14"></polyline>
                       </svg>
-                      <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">${timeText}</span>
+                      <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500; font-family: monospace;">${timeText}</span>
                     </div>
                   `,
                 }
@@ -440,7 +440,7 @@ export default function ShiftPage() {
                       <circle cx="12" cy="12" r="10"></circle>
                       <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
-                    <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">${timeText}</span>
+                    <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500; font-family: monospace;">${timeText}</span>
                   </div>
                 `,
               }

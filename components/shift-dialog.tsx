@@ -4,15 +4,14 @@ import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { TimePicker } from "@/components/ui/time-picker"
 import type { Shift } from "@/lib/db"
 import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
 
@@ -120,81 +119,142 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
     return formatThaiDateLong(new Date(year, month - 1, day))
   })()
 
+  const quickTimes = ["06:00", "07:00", "08:00", "16:00", "17:00", "18:00", "19:00"]
+
+  const handleQuickTime = (time: string, type: "in" | "out") => {
+    if (type === "in") {
+      setCheckIn(time)
+    } else {
+      setCheckOut(time)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-[580px]">
         <DialogHeader>
-          <DialogTitle>กำหนดเวลาเข้า-ออก</DialogTitle>
-          <DialogDescription>
-            <span className="mt-2 block">
-              <span className="text-sm font-medium text-zinc-900">วันที่: {formattedDate}</span>
-            </span>
-          </DialogDescription>
+          <DialogTitle className="text-xl font-bold">กำหนดเวลาเข้า-ออก</DialogTitle>
+          <DialogDescription className="text-sm text-zinc-500">{formattedDate}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="is-holiday"
-              checked={isHoliday}
-              onCheckedChange={(checked) => setIsHoliday(checked === true)}
-            />
-            <Label
-              htmlFor="is-holiday"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              วันหยุดนักขัตฤกษ์ (นับเป็นชั่วโมงโอทีทั้งวัน)
+        <div className="space-y-6 py-2">
+          {/* Time Selection - Proximity: จัดกลุ่มเวลาเข้า-ออกใกล้กัน */}
+          <div className="rounded-lg bg-zinc-50 p-5">
+            <div className="grid grid-cols-2 gap-6">
+              <TimePicker label="เวลาเข้า" value={checkIn} onChange={setCheckIn} id="check-in" />
+              <TimePicker label="เวลาออก" value={checkOut} onChange={setCheckOut} id="check-out" />
+            </div>
+          </div>
+
+          {/* Quick Time Selection - Common Region: แยกเป็นกลุ่มชัดเจน */}
+          <div className="space-y-3">
+            <Label className="text-xs font-semibold text-zinc-700 uppercase tracking-wide">
+              เลือกเวลาด่วน
             </Label>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Quick times for Check In */}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-zinc-500 px-1">เวลาเข้า</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {quickTimes.slice(0, 3).map((time) => (
+                    <Button
+                      key={`in-${time}`}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickTime(time, "in")}
+                      className="hover:bg-zinc-100 font-medium font-mono"
+                    >
+                      {time}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quick times for Check Out */}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-zinc-500 px-1">เวลาออก</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {quickTimes.slice(3).map((time) => (
+                    <Button
+                      key={`out-${time}`}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleQuickTime(time, "out")}
+                      className="hover:bg-zinc-100 font-medium font-mono"
+                    >
+                      {time}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="check-in">เวลาเข้า</Label>
-            <Input
-              type="time"
-              id="check-in"
-              step="60"
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-            />
+          {/* Options - Clean minimal design */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Holiday Option */}
+              <label className="flex items-start gap-3 p-4 rounded-lg border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 cursor-pointer transition-all group">
+                <Checkbox
+                  id="is-holiday"
+                  checked={isHoliday}
+                  onCheckedChange={(checked) => setIsHoliday(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="flex-1 space-y-1">
+                  <div className="text-sm font-semibold text-zinc-900">วันหยุดนักขัตฤกษ์</div>
+                  <div className="text-xs text-zinc-500 leading-relaxed">
+                    นับเป็นชั่วโมงโอทีทั้งวัน
+                  </div>
+                </div>
+              </label>
+
+              {/* Overtime Option */}
+              <label className="flex items-start gap-3 p-4 rounded-lg border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 cursor-pointer transition-all group">
+                <Checkbox
+                  id="enable-overtime"
+                  checked={enableOvertime}
+                  onCheckedChange={(checked) => setEnableOvertime(checked === true)}
+                  className="mt-0.5"
+                />
+                <div className="flex-1 space-y-1">
+                  <div className="text-sm font-semibold text-zinc-900">เปิดล่วงเวลา (OT)</div>
+                  <div className="text-xs text-zinc-500 leading-relaxed">
+                    ถ้าปิดจะนับจบเวลาเลิกงาน
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="check-out">เวลาออก</Label>
-            <Input
-              type="time"
-              id="check-out"
-              step="60"
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-            />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="enable-overtime"
-              checked={enableOvertime}
-              onCheckedChange={(checked) => setEnableOvertime(checked === true)}
-            />
-            <Label
-              htmlFor="enable-overtime"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              เปิดล่วงเวลา (ถ้าปิดจะนับจบแค่เวลาเลิกงานที่กำหนดไว้)
-            </Label>
+          {/* Actions - Fitts's Law: ปุ่มใหญ่พอและจัดกลุ่มตามการใช้งาน */}
+          <div className="flex items-center justify-between pt-4 border-t">
+            {shift ? (
+              <Button
+                variant="outline"
+                onClick={handleDelete}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                ลบข้อมูล
+              </Button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleCancel} className="min-w-[100px]">
+                ยกเลิก
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                className="min-w-[100px] bg-zinc-900 hover:bg-zinc-800"
+              >
+                บันทึก
+              </Button>
+            </div>
           </div>
         </div>
-
-        <DialogFooter>
-          {shift && (
-            <Button variant="destructive" onClick={handleDelete}>
-              ลบ
-            </Button>
-          )}
-          <Button variant="outline" onClick={handleCancel}>
-            ยกเลิก
-          </Button>
-          <Button onClick={handleSubmit}>บันทึก</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

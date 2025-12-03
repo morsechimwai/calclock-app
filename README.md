@@ -345,12 +345,6 @@ pnpm lint       # รัน ESLint
 - Database indexes สำหรับ queries ที่เร็วขึ้น
 - Optimistic UI updates
 
-## Export Features
-
-- Export เงินเดือนเป็น Excel (`.xlsx`)
-- รวมข้อมูลครบถ้วน: วันทำงาน, OT ทุกประเภท, เงินเดือนรวม
-- Format อ่านง่าย พร้อมใช้งาน
-
 ## Troubleshooting
 
 ### ฐานข้อมูลไม่ทำงาน

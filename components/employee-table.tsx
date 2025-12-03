@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { getEmployeesPaginatedAction } from "@/app/(app)/employee/actions"
+import { EmptyState, EmptyStateIcons } from "@/components/empty-state"
 
 function calculateAge(birthday?: string | null): string {
   if (!birthday) return "-"
@@ -107,7 +108,9 @@ export function EmployeeTable({ initialData }: Props) {
           <div>
             <h2 className="text-lg font-semibold text-zinc-900">ข้อมูลพนักงาน</h2>
             <p className="text-sm text-zinc-600">
-              ทั้งหมด {data.total.toLocaleString("th-TH")} รายการ
+              {data.total > 0
+                ? `ทั้งหมด ${data.total.toLocaleString("th-TH")} รายการ`
+                : "ยังไม่มีข้อมูลพนักงานในระบบ"}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -115,88 +118,91 @@ export function EmployeeTable({ initialData }: Props) {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-zinc-50">
-                <TableHead className="font-semibold text-zinc-900">ชื่อ-สกุล</TableHead>
-                <TableHead className="font-semibold text-zinc-900">อายุ</TableHead>
-                <TableHead className="font-semibold text-zinc-900">ที่อยู่</TableHead>
-                <TableHead className="font-semibold text-zinc-900">เบอร์โทรศัพท์</TableHead>
-                <TableHead className="font-semibold text-zinc-900">ประกันสังคม</TableHead>
-                <TableHead className="font-semibold text-zinc-900">ค่าแรง</TableHead>
-                <TableHead className="font-semibold text-zinc-900 text-right">
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center text-zinc-500 py-8">
-                    ไม่มีข้อมูล
-                  </TableCell>
+        {data.data.length === 0 ? (
+          <EmptyState
+            icon={<EmptyStateIcons.Users />}
+            title="ยังไม่มีข้อมูลพนักงาน"
+            description="เริ่มต้นใช้งานโดยการเพิ่มข้อมูลพนักงานคนแรกของคุณ คุณสามารถเพิ่ม แก้ไข และจัดการข้อมูลพนักงานได้ง่าย ๆ ผ่านระบบของเรา"
+            action={
+              <EmployeeSheetForm>
+                <Button>เพิ่มพนักงานคนแรก</Button>
+              </EmployeeSheetForm>
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-zinc-50">
+                  <TableHead className="font-semibold text-zinc-900">ชื่อ-สกุล</TableHead>
+                  <TableHead className="font-semibold text-zinc-900">อายุ</TableHead>
+                  <TableHead className="font-semibold text-zinc-900">ที่อยู่</TableHead>
+                  <TableHead className="font-semibold text-zinc-900">เบอร์โทรศัพท์</TableHead>
+                  <TableHead className="font-semibold text-zinc-900">ประกันสังคม</TableHead>
+                  <TableHead className="font-semibold text-zinc-900">ค่าแรง</TableHead>
+                  <TableHead className="font-semibold text-zinc-900 text-right">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
-              ) : (
-                <>
-                  {data.data.map((emp) => (
-                    <TableRow key={emp.id} className="hover:bg-zinc-50">
-                      <TableCell>
-                        <div className="font-medium text-zinc-900">{emp.name}</div>
-                        <div className="text-xs text-zinc-500">
-                          รหัสนิ้วมือ #{emp.fingerprint.padStart(3, "0")}
-                        </div>
-                      </TableCell>
-                      <TableCell>{calculateAge(emp.birthday)}</TableCell>
-                      <TableCell>
-                        {emp.address && emp.address.trim().length > 0 ? emp.address : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {emp.phone && emp.phone.trim().length > 0 ? emp.phone : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {emp.hasSocialSecurity ? (
-                          <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                            มี
-                          </span>
-                        ) : (
-                          <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
-                            ไม่มี
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {emp.baseSalary.toLocaleString("th-TH", {
-                          style: "currency",
-                          currency: "THB",
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right align-middle">
-                        <EmployeeRowActions
-                          employeeId={emp.id}
-                          employeeName={emp.name}
-                          onEditClick={handleEditClick}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {/* Fill empty rows to always show 10 rows */}
-                  {Array.from({ length: LIMIT - data.data.length }).map((_, index) => (
-                    <TableRow key={`empty-${index}`} className="hover:bg-transparent">
-                      <TableCell>&nbsp;</TableCell>
-                      <TableCell>&nbsp;</TableCell>
-                      <TableCell>&nbsp;</TableCell>
-                      <TableCell>&nbsp;</TableCell>
-                      <TableCell>&nbsp;</TableCell>
-                      <TableCell>&nbsp;</TableCell>
-                      <TableCell>&nbsp;</TableCell>
-                    </TableRow>
-                  ))}
-                </>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {data.data.map((emp) => (
+                  <TableRow key={emp.id} className="hover:bg-zinc-50">
+                    <TableCell>
+                      <div className="font-medium text-zinc-900">{emp.name}</div>
+                      <div className="text-xs text-zinc-500">
+                        รหัสนิ้วมือ #{emp.fingerprint.padStart(3, "0")}
+                      </div>
+                    </TableCell>
+                    <TableCell>{calculateAge(emp.birthday)}</TableCell>
+                    <TableCell>
+                      {emp.address && emp.address.trim().length > 0 ? emp.address : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {emp.phone && emp.phone.trim().length > 0 ? emp.phone : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {emp.hasSocialSecurity ? (
+                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                          มี
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                          ไม่มี
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {emp.baseSalary.toLocaleString("th-TH", {
+                        style: "currency",
+                        currency: "THB",
+                      })}
+                    </TableCell>
+                    <TableCell className="text-right align-middle">
+                      <EmployeeRowActions
+                        employeeId={emp.id}
+                        employeeName={emp.name}
+                        onEditClick={handleEditClick}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {/* Fill empty rows to always show 10 rows */}
+                {Array.from({ length: LIMIT - data.data.length }).map((_, index) => (
+                  <TableRow key={`empty-${index}`} className="hover:bg-transparent">
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                    <TableCell>&nbsp;</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
 
         {data.totalPages > 1 && (
           <div className="flex items-center justify-between">

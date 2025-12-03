@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { EmptyState, EmptyStateIcons } from "@/components/empty-state"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -186,7 +187,9 @@ export function FingerprintTable({ initialData }: Props) {
         <div>
           <h2 className="text-lg font-semibold text-zinc-900">ข้อมูล Fingerprint</h2>
           <p className="text-sm text-zinc-600">
-            ทั้งหมด {data.total.toLocaleString("th-TH")} รายการ
+            {data.total > 0
+              ? `ทั้งหมด ${data.total.toLocaleString("th-TH")} รายการ`
+              : "ยังไม่มีข้อมูลบันทึกเวลา"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -243,57 +246,61 @@ export function FingerprintTable({ initialData }: Props) {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-zinc-50">
-              <TableHead className="font-semibold text-zinc-900">ID</TableHead>
-              <TableHead className="font-semibold text-zinc-900">ชื่อพนักงาน</TableHead>
-              <TableHead className="font-semibold text-zinc-900">วันที่</TableHead>
-              <TableHead className="font-semibold text-zinc-900">เวลา</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-zinc-500 py-8">
-                  ไม่มีข้อมูล
-                </TableCell>
+      {data.data.length === 0 ? (
+        <EmptyState
+          icon={<EmptyStateIcons.Fingerprint />}
+          title="ยังไม่มีข้อมูลบันทึกเวลา"
+          description="เริ่มต้นใช้งานโดยการนำเข้าไฟล์ข้อมูลเวลาเข้างานจากเครื่องสแกนลายนิ้วมือ รองรับไฟล์ .txt, .csv และ .xlsx"
+          action={
+            <Button onClick={() => uploadInputRef.current?.click()} disabled={isUploading}>
+              <Upload className="h-4 w-4 mr-2" />
+              {isUploading ? `กำลังอัปโหลด ${uploadProgress}%` : "เลือกไฟล์"}
+            </Button>
+          }
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-zinc-50">
+                <TableHead className="font-semibold text-zinc-900">ID</TableHead>
+                <TableHead className="font-semibold text-zinc-900">ชื่อพนักงาน</TableHead>
+                <TableHead className="font-semibold text-zinc-900">วันที่</TableHead>
+                <TableHead className="font-semibold text-zinc-900">เวลา</TableHead>
               </TableRow>
-            ) : (
-              <>
-                {data.data.map((row) => (
-                  <TableRow key={row.id} className="hover:bg-zinc-50">
-                    <TableCell className="font-mono text-sm">
-                      #{row.id.toString().padStart(10, "0")}
-                    </TableCell>
-                    <TableCell>
-                      {row.employeeName ? (
-                        <span className="font-medium text-zinc-900">{row.employeeName}</span>
-                      ) : (
-                        <span className="text-zinc-400 italic">
-                          ไม่พบข้อมูล (รหัส: {row.fingerprint})
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{formatDate(row.date)}</TableCell>
-                    <TableCell className="font-mono text-sm">{row.time}</TableCell>
-                  </TableRow>
-                ))}
-                {/* Fill empty rows to always show 10 rows */}
-                {Array.from({ length: LIMIT - data.data.length }).map((_, index) => (
-                  <TableRow key={`empty-${index}`} className="hover:bg-transparent">
-                    <TableCell className="font-mono text-sm">&nbsp;</TableCell>
-                    <TableCell>&nbsp;</TableCell>
-                    <TableCell className="font-mono text-sm">&nbsp;</TableCell>
-                    <TableCell className="font-mono text-sm">&nbsp;</TableCell>
-                  </TableRow>
-                ))}
-              </>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {data.data.map((row) => (
+                <TableRow key={row.id} className="hover:bg-zinc-50">
+                  <TableCell className="font-mono text-sm">
+                    #{row.id.toString().padStart(10, "0")}
+                  </TableCell>
+                  <TableCell>
+                    {row.employeeName ? (
+                      <span className="font-medium text-zinc-900">{row.employeeName}</span>
+                    ) : (
+                      <span className="text-zinc-400 italic">
+                        ไม่พบข้อมูล (รหัส: {row.fingerprint})
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">{formatDate(row.date)}</TableCell>
+                  <TableCell className="font-mono text-sm">{row.time}</TableCell>
+                </TableRow>
+              ))}
+              {/* Fill empty rows to always show 10 rows */}
+              {Array.from({ length: LIMIT - data.data.length }).map((_, index) => (
+                <TableRow key={`empty-${index}`} className="hover:bg-transparent">
+                  <TableCell className="font-mono text-sm">&nbsp;</TableCell>
+                  <TableCell>&nbsp;</TableCell>
+                  <TableCell className="font-mono text-sm">&nbsp;</TableCell>
+                  <TableCell className="font-mono text-sm">&nbsp;</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {data.totalPages > 1 && (
         <div className="flex items-center justify-between">

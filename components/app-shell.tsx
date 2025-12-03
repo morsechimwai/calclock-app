@@ -3,7 +3,15 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
-import { LayoutDashboard, Calculator, Users, Fingerprint, Calendar } from "lucide-react"
+import {
+  LayoutDashboard,
+  Calculator,
+  Users,
+  Fingerprint,
+  Calendar,
+  Clock,
+  BrainCircuit,
+} from "lucide-react"
 
 type NavItem = {
   href: string
@@ -24,21 +32,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
-      <aside className="fixed left-0 top-0 hidden h-screen w-60 flex-col border-r border-zinc-200 bg-white px-4 py-6 md:flex">
-        <div className="mb-6 flex items-start gap-2">
-          <div className="flex size-10 min-w-10 items-center justify-center rounded-xl bg-zinc-900 text-base font-semibold text-white">
-            CC
-          </div>
-          <div>
-            <div>
-              <div className="text-lg font-semibold tracking-tight">CalClock</div>
-            </div>
-
-            <div className="text-xs text-zinc-500">NTC Wood Chipper Biomass Co., Ltd.</div>
+      {/* Fixed Sidebar */}
+      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-60 flex-col border-r border-zinc-200 bg-white px-4 py-6 md:flex">
+        <div className="mb-6 flex-col items-center justify-center gap-2">
+          <div className="text-3xl font-black tracking-tight text-zinc-900 uppercase flex items-center ">
+            CalCl
+            <Clock className="size-6 text-zinc-50 bg-zinc-900 rounded-full p-0.5 mx-0.5" />
+            ck
           </div>
         </div>
 
-        <nav className="mt-2 flex flex-col gap-1 text-sm">
+        <nav className="mt-2 flex flex-col gap-1 text-sm flex-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const active =
               pathname === item.href ||
@@ -59,9 +63,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             )
           })}
         </nav>
+
+        <div className="mt-4 flex items-center gap-2">
+          <span className="text-xs text-zinc-500">developed by</span>
+          <div className="uppercase inline-flex items-center font-black text-zinc-50 bg-zinc-900 rounded-md px-2 py-1 text-xs">
+            <BrainCircuit className="size-4 text-zinc-50 inline-block" />
+            morsetron
+          </div>
+        </div>
       </aside>
 
-      <main className="min-h-screen px-4 py-6 md:ml-60 md:px-8 md:py-8">{children}</main>
+      {/* Main Content - with left margin to account for sidebar */}
+      <main className="md:ml-60 px-4 py-6 md:px-8 md:py-8">{children}</main>
     </div>
   )
 }

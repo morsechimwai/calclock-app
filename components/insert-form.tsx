@@ -51,7 +51,7 @@ export function InsertForm() {
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm font-semibold text-blue-600">1</TableCell>
-                <TableCell>มอร์ส</TableCell>
+                <TableCell>ประภาพร สุริยะ</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm">0</TableCell>
                 <TableCell className="font-mono text-sm font-semibold text-blue-600">
@@ -62,7 +62,7 @@ export function InsertForm() {
                 <TableCell className="font-mono text-sm">2</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm font-semibold text-blue-600">2</TableCell>
-                <TableCell>ป๋าเฉลียว</TableCell>
+                <TableCell>อนุชา ขวัญสุข</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm">0</TableCell>
                 <TableCell className="font-mono text-sm font-semibold text-blue-600">
@@ -73,7 +73,7 @@ export function InsertForm() {
                 <TableCell className="font-mono text-sm">3</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm font-semibold text-blue-600">1</TableCell>
-                <TableCell>มอร์ส</TableCell>
+                <TableCell>ประภาพร สุริยะ</TableCell>
                 <TableCell className="font-mono text-sm">1</TableCell>
                 <TableCell className="font-mono text-sm">0</TableCell>
                 <TableCell className="font-mono text-sm font-semibold text-blue-600">
