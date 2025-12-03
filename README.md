@@ -53,15 +53,15 @@
 
 ### Frontend
 
-- **Next.js 16** - App Router, React Server Components
-- **React 19** - UI Library
-- **TypeScript** - Type Safety
+- **Next.js 16.0.6** - App Router, React Server Components
+- **React 19.2.0** - UI Library
+- **TypeScript 5** - Type Safety
 - **TailwindCSS 4** - Styling
 - **Shadcn UI** - Component Library
 
 ### Backend & Database
 
-- **better-sqlite3** - SQLite Database
+- **better-sqlite3** - SQLite Database (WAL mode)
 - **Server Actions** - Data Mutations
 
 ### Libraries
@@ -69,10 +69,12 @@
 - **FullCalendar** - Calendar View
 - **Recharts** - Data Visualization
 - **date-fns** - Date Utilities
-- **Zod** - Schema Validation
+- **Zod 4.1.13** - Schema Validation
 - **PapaParse** - CSV Parser
 - **XLSX** - Excel Import/Export
 - **Zustand** - State Management
+- **Lucide React** - Icon Library
+- **React Day Picker** - Date Picker Component
 
 ## Installation
 
@@ -255,7 +257,7 @@ pnpm dev
 ```
 calclock-app/
 ├── app/
-│   ├── (app)/                      # App Routes (Protected)
+│   ├── (app)/                      # App Routes
 │   │   ├── dashboard/              # หน้า Dashboard
 │   │   │   ├── page.tsx
 │   │   │   └── actions.ts
@@ -292,10 +294,17 @@ calclock-app/
 │       ├── format-thai-date.ts     # Thai Date Formatter
 │       └── payroll-calculator.ts   # Payroll Calculation Logic
 ├── public/                         # Static Assets
-├── calclock.db                     # SQLite Database
+│   └── template-timestamp.txt      # Upload Template
+├── calclock.db                     # SQLite Database (WAL mode)
+├── calclock.db-wal                 # SQLite WAL file
+├── calclock.db-shm                 # SQLite Shared Memory file
 ├── package.json                    # Dependencies
+├── pnpm-lock.yaml                  # pnpm Lock file
+├── pnpm-workspace.yaml             # pnpm Workspace Config
 ├── tsconfig.json                   # TypeScript Config
-├── tailwind.config.ts              # Tailwind Config
+├── postcss.config.mjs              # PostCSS Config (TailwindCSS 4)
+├── eslint.config.mjs               # ESLint Config
+├── components.json                 # Shadcn UI Config
 └── next.config.ts                  # Next.js Config
 ```
 
