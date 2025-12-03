@@ -41,9 +41,9 @@ export default function PayrollPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">คำนวณเวลาเข้างาน</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">คำนวณชั่วโมงทำงาน</h1>
           <p className="text-base text-zinc-600">
-            เลือกช่วงวันที่ที่ต้องการ แล้วกดคำนวณเวลาเข้างาน
+            เลือกช่วงวันที่ที่ต้องการ แล้วกดคำนวณชั่วโมงทำงาน
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -79,7 +79,7 @@ export default function PayrollPage() {
             disabled={!dateRange?.from || !dateRange?.to || isPending}
             className="px-4 py-2 text-base font-semibold"
           >
-            {isPending ? "กำลังคำนวณ..." : "คำนวณเวลาเข้างาน"}
+            {isPending ? "กำลังคำนวณ..." : "คำนวณชั่วโมงทำงาน"}
           </Button>
         </div>
       </div>

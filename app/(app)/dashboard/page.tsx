@@ -23,11 +23,6 @@ export default function DashboardPage() {
   const currentYear = new Date().getFullYear()
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
-  // Load stats on mount
-  useEffect(() => {
-    loadStats(selectedYear)
-  }, [])
-
   function loadStats(year: string) {
     startTransition(async () => {
       const yearNum = year === "all" ? null : parseInt(year)
@@ -35,6 +30,11 @@ export default function DashboardPage() {
       setStats(data)
     })
   }
+
+  // Load stats on mount
+  useEffect(() => {
+    loadStats(selectedYear)
+  }, [selectedYear])
 
   function handleYearChange(year: string) {
     setSelectedYear(year)
@@ -53,13 +53,11 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">หน้าหลัก</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">ภาพรวม</h1>
           <p className="text-base text-zinc-600">
             ภาพรวมระบบและสถิติการใช้งาน
             {selectedYear !== "all" && (
-              <span className="ml-2 text-zinc-500">
-                (พ.ศ. {parseInt(selectedYear) + 543})
-              </span>
+              <span className="ml-2 text-zinc-500">(พ.ศ. {parseInt(selectedYear) + 543})</span>
             )}
           </p>
         </div>

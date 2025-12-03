@@ -13,9 +13,11 @@ export default function InsertPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">บันทึกเวลาเข้างาน</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+          นำเข้าข้อมูลลายนิ้วมือ
+        </h1>
         <p className="text-base text-zinc-600">
-          อัปโหลดไฟล์เวลาเข้างาน (.txt, .csv หรือ .xlsx) เพื่อใช้ในการคำนวณเงินเดือน
+          อัปโหลดไฟล์ลายนิ้วมือ (.txt, .csv หรือ .xlsx) เพื่อใช้ในการคำนวณชั่วโมงทำงาน
         </p>
       </div>
 

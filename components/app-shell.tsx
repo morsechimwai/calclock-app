@@ -20,9 +20,9 @@ type NavItem = {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "หน้าหลัก", icon: LayoutDashboard },
-  { href: "/payroll", label: "สรุปเวลาเข้างาน", icon: Calculator },
-  { href: "/insert", label: "นำเข้าบันทึกเวลา", icon: Fingerprint },
+  { href: "/dashboard", label: "ภาพรวม", icon: LayoutDashboard },
+  { href: "/payroll", label: "คำนวณชั่วโมงทำงาน", icon: Calculator },
+  { href: "/insert", label: "นำเข้าข้อมูลลายนิ้วมือ", icon: Fingerprint },
   { href: "/shift", label: "จัดการเวลาเข้างาน", icon: Calendar },
   { href: "/employee", label: "จัดการพนักงาน", icon: Users },
 ]
@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mt-4 flex items-center gap-2">
           <span className="text-xs text-zinc-500">developed by</span>
           <div className="uppercase inline-flex items-center font-black text-zinc-50 bg-zinc-900 rounded-md px-2 py-1 text-xs">
-            <BrainCircuit className="size-4 text-zinc-50 inline-block" />
+            <BrainCircuit className="size-4 text-zinc-50 inline-block mr-0.5" />
             morsetron
           </div>
         </div>
