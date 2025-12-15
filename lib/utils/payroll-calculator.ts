@@ -361,11 +361,13 @@ export function calculateWorkDaysAndOT(
     } else {
       lunchBreakOT = 0
       otHours = 0
-      // Ifสายเกิน 40 นาที ให้คิดตามชั่วโมงสุทธิจริง (ไม่บวกพักกลับ)
+      // กรณีทำงานเต็มช่วงเวรแต่สาย:
+      // - ถ้าสาย > 40 นาที: เติมพักกลับได้สูงสุด 0.5 ชม. (เช่น 9:00–17:00 → 7.5 ชม.)
+      // - ถ้าไม่ถึง 40 นาที: เติมพักกลับเต็ม 1 ชม. ได้ไม่เกิน 8 ชม.
       if (lateMinutesForDay > 40) {
-        workHours = netWorkHours
+        const restoredHours = netWorkHours + LUNCH_BREAK_OT // เติมคืนแค่ 0.5 ชม.
+        workHours = Math.min(restoredHours, STANDARD_WORK_HOURS)
       } else {
-        // เดิม: เติมพักกลับในชั่วโมงปกติแต่ไม่เกิน 8 ชม.
         workHours = Math.min(netWorkHours + lunchBreakDeductionHours, STANDARD_WORK_HOURS)
       }
     }

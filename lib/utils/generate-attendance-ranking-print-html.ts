@@ -52,11 +52,11 @@ export function generateAttendanceRankingPrintHTML(
       box-sizing: border-box;
     }
     body {
-      font-family: 'Sarabun', 'Kanit', 'Prompt', sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       padding: 20px;
       background: white;
       color: #000;
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1.6;
     }
     .header {

@@ -121,9 +121,9 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
         .replace(/>/g, "&gt;")
       const workDaysText = hasTwoTimes
         ? workDays > 0
-          ? `<div class="workday-main">${workDays.toFixed(
+          ? `${workDays.toFixed(1)}&nbsp;<span style="font-size: 12px;">(${workHours.toFixed(
               1
-            )}</div><div class="workday-sub">(${workHours.toFixed(1)} ชม.)</div>`
+            )} ชม.)</span>`
           : workDays.toFixed(1)
         : "-"
       const lunchOTText = (hasTwoTimes ? (lunchBreakOT > 0 ? lunchBreakOT.toFixed(1) : "0") : "-")
@@ -134,7 +134,17 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-      const formattedDateEscaped = formattedDate
+
+      const markers: string[] = []
+      if (shift.isHoliday) {
+        markers.push("SD")
+      }
+      if (isConsecutive7) {
+        markers.push("7D")
+      }
+      const dateLabel =
+        markers.length > 0 ? `${formattedDate} (${markers.join(", ")})` : formattedDate
+      const formattedDateEscaped = dateLabel
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -147,7 +157,7 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
           <td class="nowrap" style="border: 1px solid #000; padding: 8px; text-align: left;">${formattedDateEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${checkInTimeEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${checkOutTimeEscaped}</td>
-          <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${workDaysText}</td>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace; white-space: nowrap;">${workDaysText}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${lunchOTText}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${otText}</td>
         </tr>`
@@ -156,7 +166,7 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
           <td class="nowrap" style="border: 1px solid #000; padding: 8px; text-align: left;">${formattedDateEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${checkInTimeEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${checkOutTimeEscaped}</td>
-          <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${workDaysText}</td>
+          <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace; white-space: nowrap;">${workDaysText}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${lunchOTText}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${otText}</td>
         </tr>`
@@ -206,11 +216,11 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
       box-sizing: border-box;
     }
     body {
-      font-family: 'Sarabun', 'Kanit', 'Prompt', sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       padding: 20px;
       background: white;
       color: #000;
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1.6;
     }
     .header {
@@ -318,12 +328,12 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
 <body>
   <div class="header">
     <h1>ตารางเวลาทำงาน</h1>
-    <div class="company">บริษัท เอ็นทีซี วู้ด ชิปเปอร์ ไบโอแมส จำกัด</div>
     <div class="info">${dateRangeText}</div>
     <div class="info">จำนวนพนักงาน ${employeeCount} คน</div>
     <div class="info">วันทำงานเฉลี่ย ${avgWorkDays.toFixed(
       1
     )} วัน ล่วงเวลาโอทีเฉลี่ย ${avgOTHours.toFixed(1)} ชั่วโมง (รวมพักกลางวัน)</div>
+    <div class="info">หมายเหตุ: SD = วันหยุดนักขัตฤกษ์, 7D = ทำงานต่อเนื่อง 7 วัน</div>
   </div>
   <table>
     <thead>
