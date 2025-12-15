@@ -40,7 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Fingerprint, Plus, X, ClockAlert } from "lucide-react"
+import { Fingerprint, Plus, X, ClockAlert, CalendarCheck } from "lucide-react"
 
 type Props = {
   data: PayrollData[]
@@ -181,7 +181,7 @@ export function PayrollTable({ data, onRefresh }: Props) {
                   const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
                   const shift = getShiftForDate(entry.date, shiftMap)
                   const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
-                  const { workDays, otHours, lunchBreakOT } = calculateWorkDaysAndOT(
+                  const { workDays, workHours, otHours, lunchBreakOT } = calculateWorkDaysAndOT(
                     checkIn,
                     checkOut,
                     shift.checkIn,
@@ -223,19 +223,29 @@ export function PayrollTable({ data, onRefresh }: Props) {
                     const shift = getShiftForDate(entry.date, shiftMap)
                     const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
 
+                    // Check if shift is configured for this date (not using default values)
+                    const hasShiftConfigured = shiftMap.has(entry.date)
+
                     // Calculate work days and OT hours (only if 2 times)
-                    const { workDays, otHours, lunchBreakOT, isLateWarning } = hasTwoTimes
-                      ? calculateWorkDaysAndOT(
-                          checkIn,
-                          checkOut,
-                          shift.checkIn,
-                          shift.checkOut,
-                          shift.isHoliday,
-                          isConsecutive7,
-                          timeStrings,
-                          shift.enableOvertime
-                        )
-                      : { workDays: 0, otHours: 0, lunchBreakOT: 0, isLateWarning: false }
+                    const { workDays, workHours, otHours, lunchBreakOT, isLateWarning } =
+                      hasTwoTimes
+                        ? calculateWorkDaysAndOT(
+                            checkIn,
+                            checkOut,
+                            shift.checkIn,
+                            shift.checkOut,
+                            shift.isHoliday,
+                            isConsecutive7,
+                            timeStrings,
+                            shift.enableOvertime
+                          )
+                        : {
+                            workDays: 0,
+                            workHours: 0,
+                            otHours: 0,
+                            lunchBreakOT: 0,
+                            isLateWarning: false,
+                          }
 
                     // Check if this is a holiday
                     const isHoliday = shift.isHoliday
@@ -267,6 +277,12 @@ export function PayrollTable({ data, onRefresh }: Props) {
                         <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700">
                           <div className="flex items-center gap-2">
                             <span>{formattedDate}</span>
+                            {hasShiftConfigured && (
+                              <CalendarCheck
+                                className="h-4 w-4 text-zinc-500"
+                                title="มีการจัดการเวลาเข้างาน"
+                              />
+                            )}
                             {(isConsecutive7 || isHoliday || hasOvertimeFromEnableOT) && (
                               <span
                                 className={`px-2 py-0.5 rounded text-white text-xs font-semibold ${
@@ -374,7 +390,11 @@ export function PayrollTable({ data, onRefresh }: Props) {
                           </div>
                         </TableCell>
                         <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700 text-center font-mono">
-                          {hasTwoTimes ? workDays.toFixed(1) : "-"}
+                          {hasTwoTimes
+                            ? workDays > 0
+                              ? `${workDays.toFixed(1)} (${workHours.toFixed(1)} ชม.)`
+                              : workDays.toFixed(1)
+                            : "-"}
                         </TableCell>
                         <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-700 text-center font-mono">
                           {hasTwoTimes ? (lunchBreakOT > 0 ? lunchBreakOT.toFixed(1) : "0") : "-"}

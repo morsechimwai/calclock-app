@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import type { ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import {
   LayoutDashboard,
   Calculator,
@@ -11,7 +11,10 @@ import {
   Calendar,
   Clock,
   BrainCircuit,
+  Menu,
+  X,
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 type NavItem = {
   href: string
@@ -29,17 +32,68 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  function toggleSidebar() {
+    setIsSidebarOpen((prev) => !prev)
+  }
+
+  function closeSidebar() {
+    setIsSidebarOpen(false)
+  }
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
-      {/* Fixed Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-60 flex-col border-r border-zinc-200 bg-white px-4 py-6 md:flex">
-        <div className="mb-6 flex-col items-center justify-center gap-2">
-          <div className="text-3xl font-black tracking-tight text-zinc-900 uppercase flex items-center ">
+      {/* Mobile Header */}
+      <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b border-zinc-200 bg-white px-4 md:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          aria-label="เปิดเมนู"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+        <div className="flex items-center gap-1">
+          <div className="text-xl font-black tracking-tight text-zinc-900 uppercase">
+            CalCl
+            <Clock className="inline size-5 text-zinc-50 bg-zinc-900 rounded-full p-0.5 mx-0.5" />
+            ck
+          </div>
+        </div>
+      </header>
+
+      {/* Overlay for mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={closeSidebar}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 z-50 h-screen w-60 flex-col border-r border-zinc-200 bg-white px-4 py-6 transition-transform duration-300 ease-in-out md:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } md:flex`}
+      >
+        {/* Mobile close button */}
+        <div className="mb-6 flex items-center justify-between md:justify-center">
+          <div className="text-3xl font-black tracking-tight text-zinc-900 uppercase flex items-center">
             CalCl
             <Clock className="size-6 text-zinc-50 bg-zinc-900 rounded-full p-0.5 mx-0.5" />
             ck
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={closeSidebar}
+            className="md:hidden"
+            aria-label="ปิดเมนู"
+          >
+            <X className="h-5 w-5" />
+          </Button>
         </div>
 
         <nav className="mt-2 flex flex-col gap-1 text-sm flex-1 overflow-y-auto">
@@ -53,6 +107,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={closeSidebar}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 text-left transition ${
                   active ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100"
                 }`}
@@ -73,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* Main Content - with left margin to account for sidebar */}
+      {/* Main Content */}
       <main className="md:ml-60 px-4 py-6 md:px-8 md:py-8">{children}</main>
     </div>
   )
