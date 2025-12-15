@@ -273,7 +273,7 @@ export function FingerprintTable({ initialData }: Props) {
               {data.data.map((row) => (
                 <TableRow key={row.id} className="hover:bg-zinc-50">
                   <TableCell className="font-mono text-base text-zinc-900">
-                    #{row.id.toString().padStart(10, "0")}
+                    {row.id.toString().padStart(10, "0")}
                   </TableCell>
                   <TableCell className="text-base">
                     {row.employeeName ? (
