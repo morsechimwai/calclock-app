@@ -119,16 +119,13 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-      const workDaysText = (
-        hasTwoTimes
-          ? workDays > 0
-            ? `${workDays.toFixed(1)} (${workHours.toFixed(1)} ชม.)`
-            : workDays.toFixed(1)
-          : "-"
-      )
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
+      const workDaysText = hasTwoTimes
+        ? workDays > 0
+          ? `<div class="workday-main">${workDays.toFixed(
+              1
+            )}</div><div class="workday-sub">(${workHours.toFixed(1)} ชม.)</div>`
+          : workDays.toFixed(1)
+        : "-"
       const lunchOTText = (hasTwoTimes ? (lunchBreakOT > 0 ? lunchBreakOT.toFixed(1) : "0") : "-")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -147,7 +144,7 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
           <td rowspan="${
             employee.entries.length + 1
           }" style="border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top;">${employeeName}</td>
-          <td style="border: 1px solid #000; padding: 8px; text-align: left;">${formattedDateEscaped}</td>
+          <td class="nowrap" style="border: 1px solid #000; padding: 8px; text-align: left;">${formattedDateEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${checkInTimeEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${checkOutTimeEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${workDaysText}</td>
@@ -156,7 +153,7 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
         </tr>`
       } else {
         htmlRows += `<tr>
-          <td style="border: 1px solid #000; padding: 8px; text-align: left;">${formattedDateEscaped}</td>
+          <td class="nowrap" style="border: 1px solid #000; padding: 8px; text-align: left;">${formattedDateEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${checkInTimeEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${checkOutTimeEscaped}</td>
           <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${workDaysText}</td>
@@ -213,32 +210,45 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
       padding: 20px;
       background: white;
       color: #000;
+      font-size: 18px;
+      line-height: 1.6;
     }
     .header {
       text-align: center;
       margin-bottom: 20px;
     }
     .header h1 {
-      font-size: 20px;
+      font-size: 26px;
       font-weight: bold;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .header .company {
-      font-size: 16px;
-      margin-bottom: 8px;
+      font-size: 20px;
+      margin-bottom: 10px;
     }
     .header .info {
-      font-size: 14px;
+      font-size: 18px;
       line-height: 1.6;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       border: 2px solid #000;
-      font-size: 12px;
+      font-size: 14px;
       margin: 0 auto;
       background-color: white;
+    }
+    .nowrap {
+      white-space: nowrap;
+    }
+    .workday-main {
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    .workday-sub {
+      font-size: 12px;
+      line-height: 1.2;
     }
     thead {
       background-color: #f5f5f5;
@@ -319,7 +329,7 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
     <thead>
       <tr>
         <th>ชื่อ-นามสกุล</th>
-        <th>วันที่</th>
+        <th class="nowrap">วันที่</th>
         <th class="text-center">เข้า</th>
         <th class="text-center">ออก</th>
         <th class="text-center">วันทำงาน</th>

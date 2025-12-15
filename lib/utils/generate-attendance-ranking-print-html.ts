@@ -56,36 +56,38 @@ export function generateAttendanceRankingPrintHTML(
       padding: 20px;
       background: white;
       color: #000;
+      font-size: 18px;
+      line-height: 1.6;
     }
     .header {
       text-align: center;
       margin-bottom: 20px;
     }
     .header h1 {
-      font-size: 20px;
+      font-size: 26px;
       font-weight: bold;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .header .filter {
-      font-size: 14px;
-      margin-bottom: 4px;
+      font-size: 18px;
+      margin-bottom: 6px;
     }
     .header .info {
-      font-size: 12px;
-      margin-bottom: 4px;
+      font-size: 18px;
+      margin-bottom: 6px;
       line-height: 1.6;
     }
     .header .note {
-      font-size: 11px;
-      margin-top: 8px;
-      color: #666;
+      font-size: 16px;
+      margin-top: 10px;
+      color: #444;
       line-height: 1.5;
     }
     table {
       width: 100%;
       border-collapse: collapse;
       border: 2px solid #000;
-      font-size: 12px;
+      font-size: 14px;
       margin: 0 auto;
       background-color: white;
     }

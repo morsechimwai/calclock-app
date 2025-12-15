@@ -31,11 +31,6 @@ export function AttendanceRankingTable({ data, filterText = "", totalDaysWithDat
     if (printWindow) {
       printWindow.document.write(htmlContent)
       printWindow.document.close()
-
-      // Wait for content to load before printing
-      setTimeout(() => {
-        printWindow.print()
-      }, 500)
     }
   }
 
