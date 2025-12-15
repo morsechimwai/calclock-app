@@ -301,13 +301,12 @@ export function calculateWorkDaysAndOT(
   // This ensures we use shift.checkIn as the starting point (even if arrived earlier)
   const { effectiveCheckIn, isLateWarning } = calculateEffectiveCheckIn(actualCheckIn, shiftCheckIn)
 
-  const actualCheckInMinutes = timeToMinutes(actualCheckIn)
-  const shiftCheckInMinutes = timeToMinutes(shiftCheckIn)
+  const effectiveCheckInMinutes = timeToMinutes(effectiveCheckIn)
   const actualCheckOutMinutes = timeToMinutes(actualCheckOut)
   const shiftCheckOutMinutes = timeToMinutes(shiftCheckOut)
 
-  // Use actual check-in clamped to shift start (late uses actual, early does not exceed shift start)
-  const workStartMinutes = Math.max(actualCheckInMinutes, shiftCheckInMinutes)
+  // Use effective check-in which already applies late thresholds/rounding rules
+  const workStartMinutes = effectiveCheckInMinutes
 
   // Determine work end time based on enableOvertime flag
   // If overtime is disabled, always use shift.checkOut as the end point (even if left later)
