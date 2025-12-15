@@ -77,7 +77,7 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
 
   if (data.length === 0) {
     return (
-      <div className="rounded-lg border bg-white p-8 text-center text-zinc-600">
+      <div className="rounded-lg border bg-white p-8 text-center text-sm text-zinc-600">
         ไม่พบข้อมูลในช่วงวันที่ที่เลือก
       </div>
     )
@@ -259,22 +259,22 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
         <Table>
           <TableHeader>
             <TableRow className="border-b border-zinc-200 bg-zinc-50 hover:bg-zinc-50">
-              <TableHead className="w-[200px] border-r border-zinc-200 px-4 py-3 text-base font-semibold text-zinc-900">
+              <TableHead className="w-[200px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
                 ชื่อ-นามสกุล
               </TableHead>
-              <TableHead className="w-[150px] border-r border-zinc-200 px-4 py-3 text-base font-semibold text-zinc-900">
+              <TableHead className="w-[150px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
                 วันที่
               </TableHead>
-              <TableHead className="border-r border-zinc-200 px-4 py-3 text-base font-semibold text-zinc-900">
+              <TableHead className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
                 ข้อมูลลายนิ้วมือ
               </TableHead>
-              <TableHead className="w-[120px] border-r border-zinc-200 px-4 py-3 text-base font-semibold text-zinc-900 text-center">
+              <TableHead className="w-[120px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
                 วันทํางาน
               </TableHead>
-              <TableHead className="w-[120px] border-r border-zinc-200 px-4 py-3 text-base font-semibold text-zinc-900 text-center">
+              <TableHead className="w-[120px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
                 พักกลางวัน (โอที)
               </TableHead>
-              <TableHead className="w-[120px] px-4 py-3 text-base font-semibold text-zinc-900 text-center">
+              <TableHead className="w-[120px] px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
                 ล่วงเวลา (โอที)
               </TableHead>
             </TableRow>
@@ -396,12 +396,12 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                         {entryIndex === 0 && (
                           <TableCell
                             rowSpan={employee.entries.length + 2}
-                            className="align-top border-r border-zinc-200 px-4 py-3 text-base font-medium text-zinc-900 bg-white"
+                            className="align-top border-r border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-900 bg-white"
                           >
                             {employee.employeeName || `ไม่พบข้อมูล (รหัส: ${employee.fingerprint})`}
                           </TableCell>
                         )}
-                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-base text-zinc-900">
+                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900">
                           <div className="flex items-center gap-2">
                             <span>{formattedDate}</span>
                             {hasShiftConfigured && (
@@ -425,7 +425,7 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-base text-zinc-900 font-mono">
+                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 font-mono">
                           <div className="flex flex-wrap items-center gap-2">
                             {timesFormatted.length > 0 ? (
                               <>
@@ -516,17 +516,17 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-base text-zinc-900 text-center font-mono">
+                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 text-center font-mono">
                           {hasTwoTimes
                             ? workDays > 0
                               ? `${workDays.toFixed(1)} (${workHours.toFixed(1)} ชม.)`
                               : workDays.toFixed(1)
                             : "-"}
                         </TableCell>
-                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-base text-zinc-900 text-center font-mono">
+                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 text-center font-mono">
                           {hasTwoTimes ? (lunchBreakOT > 0 ? lunchBreakOT.toFixed(1) : "0") : "-"}
                         </TableCell>
-                        <TableCell className="px-4 py-3 text-base text-zinc-900 text-center font-mono">
+                        <TableCell className="px-4 py-3 text-sm text-zinc-900 text-center font-mono">
                           {hasTwoTimes ? (otHours > 0 ? otHours.toFixed(1) : "0") : "-"}
                         </TableCell>
                       </TableRow>
@@ -534,7 +534,7 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                   })}
                   {/* Row for adding new date */}
                   <TableRow className="border-b border-zinc-200 hover:bg-zinc-50/50">
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-base text-zinc-900">
+                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900">
                       <Button
                         variant="outline"
                         size="sm"
@@ -547,16 +547,16 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                         เพิ่มวันที่
                       </Button>
                     </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-base text-zinc-900 font-mono">
+                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 font-mono">
                       -
                     </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-base text-zinc-900 text-center font-mono">
+                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 text-center font-mono">
                       -
                     </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-base text-zinc-900 text-center font-mono">
+                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 text-center font-mono">
                       -
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-base text-zinc-900 text-center font-mono">
+                    <TableCell className="px-4 py-3 text-sm text-zinc-900 text-center font-mono">
                       -
                     </TableCell>
                   </TableRow>
@@ -564,17 +564,17 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                   <TableRow className="border-t-2 border-zinc-300 bg-zinc-100 hover:bg-zinc-100">
                     <TableCell
                       colSpan={2}
-                      className="border-r border-zinc-200 px-4 py-3 text-base font-semibold text-zinc-900"
+                      className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900"
                     >
                       รวม
                     </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-base font-semibold text-zinc-900 text-center font-mono">
+                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
                       {employeeWorkDays.toFixed(1)}
                     </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-base font-semibold text-zinc-900 text-center font-mono">
+                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
                       {employeeLunchBreakOT.toFixed(1)}
                     </TableCell>
-                    <TableCell className="px-4 py-3 text-base font-semibold text-zinc-900 text-center font-mono">
+                    <TableCell className="px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
                       {employeeOTHours.toFixed(1)}
                     </TableCell>
                   </TableRow>
@@ -589,14 +589,14 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
       <Dialog open={addTimeDialogOpen} onOpenChange={setAddTimeDialogOpen}>
         <DialogContent className="max-w-[480px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">เพิ่มเวลาใหม่</DialogTitle>
+            <DialogTitle className="text-base font-bold">เพิ่มเวลาใหม่</DialogTitle>
             {selectedEntry && (
               <>
-                <DialogDescription className="text-base font-medium text-zinc-900 pt-2">
+                <DialogDescription className="pt-2 text-sm font-medium text-zinc-900">
                   พนักงาน:{" "}
                   {selectedEntry.employeeName || `ไม่พบข้อมูล (รหัส: ${selectedEntry.fingerprint})`}
                 </DialogDescription>
-                <DialogDescription className="text-base text-zinc-500">
+                <DialogDescription className="text-sm text-zinc-500">
                   วันที่: {selectedEntry.formattedDate}
                 </DialogDescription>
               </>
@@ -671,9 +671,9 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
       <Dialog open={addDateDialogOpen} onOpenChange={setAddDateDialogOpen}>
         <DialogContent className="max-w-[480px]">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">เพิ่มวันที่ใหม่</DialogTitle>
+            <DialogTitle className="text-base font-bold">เพิ่มวันที่ใหม่</DialogTitle>
             {selectedEmployee && (
-              <DialogDescription className="text-base font-medium text-zinc-900 pt-2">
+              <DialogDescription className="pt-2 text-sm font-medium text-zinc-900">
                 พนักงาน:{" "}
                 {selectedEmployee.employeeName ||
                   `ไม่พบข้อมูล (รหัส: ${selectedEmployee.fingerprint})`}

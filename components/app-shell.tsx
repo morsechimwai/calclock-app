@@ -45,14 +45,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
       {/* Mobile Header */}
-      <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b border-zinc-200 bg-white px-4 md:hidden">
+      <header className="sticky top-0 z-50 flex h-12 items-center gap-3 border-b border-zinc-200 bg-white px-3 md:hidden">
         <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="เปิดเมนู">
           <Menu className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-1">
-          <div className="text-xl font-black tracking-tight text-zinc-900 uppercase">
+          <div className="text-base font-black tracking-tight text-zinc-900 uppercase">
             CalCl
-            <Clock className="inline size-5 text-zinc-50 bg-zinc-900 rounded-full p-0.5 mx-0.5" />
+            <Clock className="inline size-4 text-zinc-50 bg-zinc-900 rounded-full p-0.5 mx-0.5" />
             ck
           </div>
         </div>
@@ -74,10 +74,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         } md:flex`}
       >
         {/* Mobile close button */}
-        <div className="mb-6 flex items-center justify-between md:justify-center">
-          <div className="text-3xl font-black tracking-tight text-zinc-900 uppercase flex items-center">
+        <div className="mb-4 flex items-center justify-between md:justify-center">
+          <div className="flex items-center text-3xl font-black uppercase tracking-tight text-zinc-900">
             CalCl
-            <Clock className="size-6 text-zinc-50 bg-zinc-900 rounded-full p-0.5 mx-0.5" />
+            <Clock className="mx-0.5 size-6 rounded-full bg-zinc-900 p-0.5 text-zinc-50" />
             ck
           </div>
           <Button
@@ -91,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
         </div>
 
-        <nav className="mt-2 flex flex-col gap-1 text-base font-medium flex-1 overflow-y-auto">
+        <nav className="mt-2 flex flex-col gap-1 text-sm font-medium flex-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const active =
               pathname === item.href ||

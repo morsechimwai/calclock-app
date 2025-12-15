@@ -38,7 +38,7 @@ export function DashboardCharts({ stats }: Props) {
     <div className="grid gap-6 md:grid-cols-2">
       {/* Check-in Chart */}
       <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-xl font-semibold text-zinc-900">สถิติการเข้างาน</h3>
+        <h3 className="mb-2 text-base font-semibold text-zinc-900">สถิติการเข้างาน</h3>
         {checkInData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={checkInData}>
@@ -71,7 +71,7 @@ export function DashboardCharts({ stats }: Props) {
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-[300px] items-center justify-center text-base text-zinc-500">
+          <div className="flex h-[300px] items-center justify-center text-sm text-zinc-500">
             ยังไม่มีข้อมูลการเข้างาน
           </div>
         )}
@@ -79,7 +79,7 @@ export function DashboardCharts({ stats }: Props) {
 
       {/* Check-out Chart */}
       <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-zinc-900">สถิติการเลิกงาน</h3>
+        <h3 className="mb-2 text-base font-semibold text-zinc-900">สถิติการเลิกงาน</h3>
         {checkOutData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={checkOutData}>

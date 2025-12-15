@@ -106,7 +106,7 @@ export function DateRangeFilter({ value, onChange, disabled }: Props) {
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <Label htmlFor="filter-type" className="text-base font-medium text-zinc-700">
+      <Label htmlFor="filter-type" className="text-sm font-medium text-zinc-700">
         ดูข้อมูล:
       </Label>
       <Select value={value.type} onValueChange={handleTypeChange} disabled={disabled}>

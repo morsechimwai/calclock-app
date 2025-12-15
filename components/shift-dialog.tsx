@@ -133,7 +133,7 @@ export function ShiftDialog({ open, onOpenChange, date, shift, onSave, onDelete 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[580px]">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">กำหนดเวลาเข้า-ออก</DialogTitle>
+          <DialogTitle className="text-base font-bold">กำหนดเวลาเข้า-ออก</DialogTitle>
           <DialogDescription className="text-sm text-zinc-500">{formattedDate}</DialogDescription>
         </DialogHeader>
 
