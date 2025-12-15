@@ -80,9 +80,10 @@ export function calculateEffectiveCheckIn(
     }
   }
 
-  // If late more than 10 minutes but not more than 30 minutes, round up to 30 minutes
-  if (lateMinutes > LATE_THRESHOLD_MINUTES && lateMinutes <= LATE_ROUND_UP_MINUTES) {
-    const roundedCheckIn = shiftMinutes + LATE_ROUND_UP_MINUTES
+  // If late more than 10 minutes but not more than 40 minutes, round up to +30 minutes from shift
+  // Example: shift 08:00, arrive 08:35 -> effective 08:30
+  if (lateMinutes > LATE_THRESHOLD_MINUTES && lateMinutes <= 40) {
+    const roundedCheckIn = shiftMinutes + 30
     return {
       effectiveCheckIn: minutesToTime(roundedCheckIn),
       isLate: false,
@@ -90,8 +91,8 @@ export function calculateEffectiveCheckIn(
     }
   }
 
-  // If late more than 30 minutes, round up to next hour
-  // Example: 8:35 → 9:00, 8:45 → 9:00, 8:59 → 9:00
+  // If late more than 40 minutes, round up to next hour
+  // Example: 8:41 → 9:00, 8:53 → 9:00, 8:59 → 9:00
   const nextHour = Math.floor(actualMinutes / 60) + 1
   const roundedCheckIn = nextHour * 60
   return {
@@ -302,6 +303,7 @@ export function calculateWorkDaysAndOT(
   const { effectiveCheckIn, isLateWarning } = calculateEffectiveCheckIn(actualCheckIn, shiftCheckIn)
 
   const effectiveCheckInMinutes = timeToMinutes(effectiveCheckIn)
+  const shiftCheckInMinutes = timeToMinutes(shiftCheckIn)
   const actualCheckOutMinutes = timeToMinutes(actualCheckOut)
   const shiftCheckOutMinutes = timeToMinutes(shiftCheckOut)
 
@@ -346,6 +348,8 @@ export function calculateWorkDaysAndOT(
   const isWorkingFullShiftWithinSchedule =
     !enableOvertime && workEndMinutes === shiftCheckOutMinutes
 
+  const lateMinutesForDay = Math.max(0, workStartMinutes - shiftCheckInMinutes)
+
   if (isWorkingFullShiftWithinSchedule) {
     // Within scheduled shift and ended at shift checkout: treat as standard day
     // Apply lunch OT only when net hours (excluding lunch) reach >= 8
@@ -357,8 +361,13 @@ export function calculateWorkDaysAndOT(
     } else {
       lunchBreakOT = 0
       otHours = 0
-      // Add lunch back into regular hours (capped at 8)
-      workHours = Math.min(netWorkHours + lunchBreakDeductionHours, STANDARD_WORK_HOURS)
+      // Ifสายเกิน 40 นาที ให้คิดตามชั่วโมงสุทธิจริง (ไม่บวกพักกลับ)
+      if (lateMinutesForDay > 40) {
+        workHours = netWorkHours
+      } else {
+        // เดิม: เติมพักกลับในชั่วโมงปกติแต่ไม่เกิน 8 ชม.
+        workHours = Math.min(netWorkHours + lunchBreakDeductionHours, STANDARD_WORK_HOURS)
+      }
     }
     workDays = Math.min(1, workHours / STANDARD_WORK_HOURS)
   } else if (netWorkHours > STANDARD_WORK_HOURS) {
