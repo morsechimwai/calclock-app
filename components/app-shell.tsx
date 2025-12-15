@@ -46,12 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
       {/* Mobile Header */}
       <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b border-zinc-200 bg-white px-4 md:hidden">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleSidebar}
-          aria-label="เปิดเมนู"
-        >
+        <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="เปิดเมนู">
           <Menu className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-1">
@@ -96,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
         </div>
 
-        <nav className="mt-2 flex flex-col gap-1 text-sm flex-1 overflow-y-auto">
+        <nav className="mt-2 flex flex-col gap-1 text-base font-medium flex-1 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
             const active =
               pathname === item.href ||
@@ -108,7 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={item.href}
                 href={item.href}
                 onClick={closeSidebar}
-                className={`flex items-center gap-3 rounded-md px-3 py-2 text-left transition ${
+                className={`flex items-center gap-3 rounded-md px-3.5 py-2.5 text-left transition ${
                   active ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100"
                 }`}
               >
