@@ -242,3 +242,81 @@
 .fc-daygrid-event {
   @apply rounded-md;
 }
+
+/* Print styles for payroll table */
+@media print {
+  /* Hide everything except print-only content */
+  body * {
+    visibility: hidden;
+  }
+
+  .print-only,
+  .print-only * {
+    visibility: visible;
+  }
+
+  .print-only {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+  }
+
+  /* Hide non-print elements */
+  nav,
+  button,
+  .no-print,
+  header,
+  aside,
+  .sidebar {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Reset body styles for print */
+  body {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  /* Print table styles */
+  .payroll-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 0;
+  }
+
+  .payroll-print-table th,
+  .payroll-print-table td {
+    border: 1px solid #000;
+    padding: 8px;
+    text-align: left;
+    background: white !important;
+    color: #000 !important;
+  }
+
+  .payroll-print-table th {
+    background-color: #f5f5f5 !important;
+    font-weight: bold;
+  }
+
+  .payroll-print-table .summary-row {
+    font-weight: bold;
+    background-color: #f5f5f5 !important;
+  }
+
+  .payroll-print-table .summary-row td {
+    background-color: #f5f5f5 !important;
+  }
+
+  .payroll-print-table td.text-center {
+    text-align: center;
+  }
+
+  .payroll-print-table td.font-mono {
+    font-family: monospace;
+  }
+}

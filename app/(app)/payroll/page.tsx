@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { getPayrollData, type PayrollData } from "./actions"
 import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
+import { Printer } from "lucide-react"
+import { generatePayrollPrintHTML } from "@/lib/utils/generate-payroll-print-html"
 
 export default function PayrollPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
@@ -35,6 +37,25 @@ export default function PayrollPage() {
       setPayrollData(data)
       setHasLoaded(true)
     })
+  }
+
+  function handlePrint() {
+    if (payrollData.length === 0) {
+      return
+    }
+
+    const htmlContent = generatePayrollPrintHTML(payrollData, dateRange)
+    const printWindow = window.open("", "_blank")
+
+    if (printWindow) {
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
+
+      // Wait for content to load before printing
+      setTimeout(() => {
+        printWindow.print()
+      }, 500)
+    }
   }
 
   return (
@@ -87,27 +108,35 @@ export default function PayrollPage() {
       {hasLoaded && (
         <div className="space-y-4">
           {payrollData.length > 0 ? (
-            <PayrollTable
-              data={payrollData}
-              dateRange={dateRange}
-              onRefresh={() => {
-                if (dateRange?.from && dateRange?.to) {
-                  startTransition(async () => {
-                    const formatDate = (date: Date) => {
-                      const year = date.getFullYear()
-                      const month = String(date.getMonth() + 1).padStart(2, "0")
-                      const day = String(date.getDate()).padStart(2, "0")
-                      return `${year}-${month}-${day}`
-                    }
+            <>
+              <div className="flex justify-end">
+                <Button onClick={handlePrint} variant="outline" className="gap-2">
+                  <Printer className="h-4 w-4" />
+                  พิมพ์
+                </Button>
+              </div>
+              <PayrollTable
+                data={payrollData}
+                dateRange={dateRange}
+                onRefresh={() => {
+                  if (dateRange?.from && dateRange?.to) {
+                    startTransition(async () => {
+                      const formatDate = (date: Date) => {
+                        const year = date.getFullYear()
+                        const month = String(date.getMonth() + 1).padStart(2, "0")
+                        const day = String(date.getDate()).padStart(2, "0")
+                        return `${year}-${month}-${day}`
+                      }
 
-                    const startDate = formatDate(dateRange.from!)
-                    const endDate = formatDate(dateRange.to!)
-                    const data = await getPayrollData(startDate, endDate)
-                    setPayrollData(data)
-                  })
-                }
-              }}
-            />
+                      const startDate = formatDate(dateRange.from!)
+                      const endDate = formatDate(dateRange.to!)
+                      const data = await getPayrollData(startDate, endDate)
+                      setPayrollData(data)
+                    })
+                  }
+                }}
+              />
+            </>
           ) : (
             <div className="rounded-lg border border-zinc-200 bg-white p-12 text-center">
               <div className="mx-auto max-w-md space-y-3">

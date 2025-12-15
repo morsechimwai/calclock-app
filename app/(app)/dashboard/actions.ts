@@ -4,8 +4,13 @@ import {
   getEmployeesCount,
   getFingerprintsCount,
   getFingerprints,
+  getEmployees,
+  getShiftsByDateRange,
   type Fingerprint,
+  type Employee,
+  type Shift,
 } from "@/lib/db"
+import { getCheckInCheckOut, getShiftForDate, timeToMinutes } from "@/lib/utils/payroll-calculator"
 
 export type DashboardStats = {
   totalEmployees: number
@@ -14,6 +19,15 @@ export type DashboardStats = {
   totalDaysWithData: number
   checkInStats: Array<{ hour: string; count: number }>
   checkOutStats: Array<{ hour: string; count: number }>
+}
+
+export type AttendanceRanking = {
+  fingerprint: string
+  employeeName: string | null
+  workDays: number
+  lateDays: number
+  latePercentage: number
+  rating: "ดี" | "ควรปรับปรุง"
 }
 
 // Calculate check-in and check-out times from fingerprint data
@@ -35,18 +49,169 @@ function calculateWorkHours(times: string[]): { checkIn: string; checkOut: strin
   return { checkIn, checkOut }
 }
 
-export async function getDashboardStats(year?: number | null): Promise<DashboardStats> {
-  const totalEmployees = getEmployeesCount()
+// Check if check-in is late (more than 10 minutes after shift check-in time)
+// This compares the actual check-in time with the shift check-in time from "จัดการเวลาเข้างาน"
+function isLate(checkInTime: string, shiftCheckIn: string): boolean {
+  const checkInMinutes = timeToMinutes(checkInTime)
+  const shiftCheckInMinutes = timeToMinutes(shiftCheckIn)
+  const lateMinutes = checkInMinutes - shiftCheckInMinutes
+  // Late if more than 10 minutes after shift check-in time
+  return lateMinutes > 10 // LATE_THRESHOLD_MINUTES
+}
 
-  // Get fingerprints - filter by year if provided
+export async function getAttendanceRanking(
+  filterType?: "all" | "day" | "month" | "year",
+  date?: Date,
+  month?: number,
+  year?: number | null
+): Promise<AttendanceRanking[]> {
+  // Get all employees
+  const employees = getEmployees()
+  const employeeMap = new Map<string, Employee>()
+  employees.forEach((emp) => {
+    employeeMap.set(emp.fingerprint, emp)
+  })
+
+  // Get fingerprints - filter by filter type if provided
   let fingerprints = getFingerprints()
 
-  if (year) {
+  // Get date range for shift lookup
+  let startDate = ""
+  let endDate = ""
+
+  if (filterType === "year" && year) {
+    startDate = `${year}-01-01`
+    endDate = `${year}-12-31`
+    fingerprints = fingerprints.filter((fp) => {
+      const fpYear = parseInt(fp.date.split("-")[0])
+      return fpYear === year
+    })
+  } else if (filterType === "month" && month && year) {
+    const monthStr = String(month).padStart(2, "0")
+    startDate = `${year}-${monthStr}-01`
+    const lastDay = new Date(year, month, 0).getDate()
+    endDate = `${year}-${monthStr}-${lastDay}`
+    fingerprints = fingerprints.filter((fp) => {
+      const [fpYear, fpMonth] = fp.date.split("-").map(Number)
+      return fpYear === year && fpMonth === month
+    })
+  } else if (filterType === "day" && date) {
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+      date.getDate()
+    ).padStart(2, "0")}`
+    startDate = dateStr
+    endDate = dateStr
+    fingerprints = fingerprints.filter((fp) => fp.date === dateStr)
+  } else {
+    // For "all", get min and max dates from fingerprints
+    if (fingerprints.length > 0) {
+      const dates = fingerprints.map((fp) => fp.date).sort()
+      startDate = dates[0]
+      endDate = dates[dates.length - 1]
+    }
+  }
+
+  // Get shifts for the date range
+  const shifts = startDate && endDate ? getShiftsByDateRange(startDate, endDate) : []
+  const shiftMap = new Map<string, Shift>()
+  shifts.forEach((shift) => {
+    shiftMap.set(shift.date, shift)
+  })
+
+  // Group fingerprints by fingerprint and date
+  const groupedByFingerprint = new Map<string, Map<string, string[]>>()
+
+  fingerprints.forEach((fp) => {
+    if (!groupedByFingerprint.has(fp.fingerprint)) {
+      groupedByFingerprint.set(fp.fingerprint, new Map())
+    }
+    const dateMap = groupedByFingerprint.get(fp.fingerprint)!
+    if (!dateMap.has(fp.date)) {
+      dateMap.set(fp.date, [])
+    }
+    const times = dateMap.get(fp.date)!
+    if (!times.includes(fp.time)) {
+      times.push(fp.time)
+    }
+  })
+
+  // Calculate ranking for each employee
+  const rankings: AttendanceRanking[] = []
+
+  groupedByFingerprint.forEach((dateMap, fingerprint) => {
+    let workDays = 0
+    let lateDays = 0
+
+    dateMap.forEach((times, date) => {
+      // Only count if there are exactly 2 time entries (check-in and check-out)
+      if (times.length === 2) {
+        workDays++
+        const { checkIn } = getCheckInCheckOut(times)
+        // Get shift for this date from "จัดการเวลาเข้างาน" (shift management)
+        // This uses the actual shift check-in time set for this specific date
+        const shift = getShiftForDate(date, shiftMap)
+        // Check if check-in is late (more than 10 minutes after shift check-in time)
+        if (isLate(checkIn, shift.checkIn)) {
+          lateDays++
+        }
+      }
+    })
+
+    const employee = employeeMap.get(fingerprint)
+    const latePercentage = workDays > 0 ? Math.round((lateDays / workDays) * 100 * 10) / 10 : 0
+    const rating: "ดี" | "ควรปรับปรุง" = latePercentage <= 10 ? "ดี" : "ควรปรับปรุง"
+
+    rankings.push({
+      fingerprint,
+      employeeName: employee?.name ?? null,
+      workDays,
+      lateDays,
+      latePercentage,
+      rating,
+    })
+  })
+
+  // Sort by work days descending (คนที่เข้างานมากไปน้อย)
+  rankings.sort((a, b) => {
+    if (b.workDays !== a.workDays) {
+      return b.workDays - a.workDays
+    }
+    // If work days are equal, sort by late percentage ascending (น้อยกว่า = ดีกว่า)
+    return a.latePercentage - b.latePercentage
+  })
+
+  return rankings
+}
+
+export async function getDashboardStats(
+  filterType?: "all" | "day" | "month" | "year",
+  date?: Date,
+  month?: number,
+  year?: number | null
+): Promise<DashboardStats> {
+  const totalEmployees = getEmployeesCount()
+
+  // Get fingerprints - filter by filter type if provided
+  let fingerprints = getFingerprints()
+
+  if (filterType === "year" && year) {
     // Filter by year
     fingerprints = fingerprints.filter((fp) => {
       const fpYear = parseInt(fp.date.split("-")[0])
       return fpYear === year
     })
+  } else if (filterType === "month" && month && year) {
+    // Filter by month and year
+    fingerprints = fingerprints.filter((fp) => {
+      const [fpYear, fpMonth] = fp.date.split("-").map(Number)
+      return fpYear === year && fpMonth === month
+    })
+  } else if (filterType === "day" && date) {
+    // Filter by specific date
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+      date.getDate()
+    ).padStart(2, "0")}`
+    fingerprints = fingerprints.filter((fp) => fp.date === dateStr)
   }
 
   const totalFingerprints = fingerprints.length
@@ -121,4 +286,3 @@ export async function getDashboardStats(year?: number | null): Promise<Dashboard
     checkOutStats,
   }
 }
-

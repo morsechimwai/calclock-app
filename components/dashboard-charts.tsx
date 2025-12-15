@@ -17,22 +17,28 @@ type Props = {
 }
 
 export function DashboardCharts({ stats }: Props) {
-  // Prepare data for charts
+  // Calculate total counts for normalization
+  const checkInTotal = stats.checkInStats.reduce((sum, item) => sum + item.count, 0)
+  const checkOutTotal = stats.checkOutStats.reduce((sum, item) => sum + item.count, 0)
+
+  // Prepare data for charts with percentage
   const checkInData = stats.checkInStats.map((item) => ({
     time: item.hour,
     count: item.count,
+    percentage: checkInTotal > 0 ? Math.round((item.count / checkInTotal) * 100 * 10) / 10 : 0,
   }))
 
   const checkOutData = stats.checkOutStats.map((item) => ({
     time: item.hour,
     count: item.count,
+    percentage: checkOutTotal > 0 ? Math.round((item.count / checkOutTotal) * 100 * 10) / 10 : 0,
   }))
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
       {/* Check-in Chart */}
       <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-zinc-900">สถิติการเข้างาน</h3>
+        <h3 className="mb-4 text-xl font-semibold text-zinc-900">สถิติการเข้างาน</h3>
         {checkInData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={checkInData}>
@@ -40,23 +46,32 @@ export function DashboardCharts({ stats }: Props) {
               <XAxis
                 dataKey="time"
                 stroke="rgb(113 113 122)"
-                fontSize={12}
+                fontSize={14}
                 tickLine={false}
                 axisLine={false}
               />
-              <YAxis stroke="rgb(113 113 122)" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis
+                stroke="rgb(113 113 122)"
+                fontSize={14}
+                tickLine={false}
+                axisLine={false}
+                domain={[0, 100]}
+                tickFormatter={(value) => `${value}%`}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "white",
                   border: "1px solid rgb(228 228 231)",
                   borderRadius: "0.5rem",
                 }}
+                formatter={(value: number) => [`${value}%`, "เปอร์เซ็นต์"]}
+                labelFormatter={(label) => `เวลา: ${label}`}
               />
-              <Bar dataKey="count" fill="rgb(24 24 27)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="percentage" fill="rgb(24 24 27)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex h-[300px] items-center justify-center text-zinc-500">
+          <div className="flex h-[300px] items-center justify-center text-base text-zinc-500">
             ยังไม่มีข้อมูลการเข้างาน
           </div>
         )}
@@ -72,19 +87,28 @@ export function DashboardCharts({ stats }: Props) {
               <XAxis
                 dataKey="time"
                 stroke="rgb(113 113 122)"
-                fontSize={12}
+                fontSize={14}
                 tickLine={false}
                 axisLine={false}
               />
-              <YAxis stroke="rgb(113 113 122)" fontSize={12} tickLine={false} axisLine={false} />
+              <YAxis
+                stroke="rgb(113 113 122)"
+                fontSize={14}
+                tickLine={false}
+                axisLine={false}
+                domain={[0, 100]}
+                tickFormatter={(value) => `${value}%`}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "white",
                   border: "1px solid rgb(228 228 231)",
                   borderRadius: "0.5rem",
                 }}
+                formatter={(value: number) => [`${value}%`, "เปอร์เซ็นต์"]}
+                labelFormatter={(label) => `เวลา: ${label}`}
               />
-              <Bar dataKey="count" fill="rgb(24 24 27)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="percentage" fill="rgb(24 24 27)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
@@ -96,6 +120,3 @@ export function DashboardCharts({ stats }: Props) {
     </div>
   )
 }
-
-
-

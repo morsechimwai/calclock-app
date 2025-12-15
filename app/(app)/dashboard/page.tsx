@@ -1,44 +1,86 @@
 "use client"
 
 import { useState, useTransition, useEffect } from "react"
-import { getDashboardStats } from "./actions"
+import { getDashboardStats, getAttendanceRanking } from "./actions"
 import { DashboardStatsCards } from "@/components/dashboard-stats-cards"
 import { DashboardCharts } from "@/components/dashboard-charts"
-import type { DashboardStats } from "./actions"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
+import { AttendanceRankingTable } from "@/components/attendance-ranking-table"
+import type { DashboardStats, AttendanceRanking } from "./actions"
+import { DateRangeFilter, type DateRangeFilterValue } from "@/components/date-range-filter"
+import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
 
 export default function DashboardPage() {
-  const [selectedYear, setSelectedYear] = useState<string>("all")
+  const currentYear = new Date().getFullYear()
+  const [filterValue, setFilterValue] = useState<DateRangeFilterValue>({
+    type: "year",
+    year: currentYear,
+  })
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [rankings, setRankings] = useState<AttendanceRanking[]>([])
   const [isPending, startTransition] = useTransition()
 
-  // Get current year and available years
-  const currentYear = new Date().getFullYear()
-  const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
-
-  function loadStats(year: string) {
+  function loadStats(filter: DateRangeFilterValue) {
     startTransition(async () => {
-      const yearNum = year === "all" ? null : parseInt(year)
-      const data = await getDashboardStats(yearNum)
-      setStats(data)
+      const [statsData, rankingsData] = await Promise.all([
+        getDashboardStats(
+          filter.type,
+          filter.date,
+          filter.month,
+          filter.type === "year" ? filter.year : filter.type === "month" ? filter.year : null
+        ),
+        getAttendanceRanking(
+          filter.type,
+          filter.date,
+          filter.month,
+          filter.type === "year" ? filter.year : filter.type === "month" ? filter.year : null
+        ),
+      ])
+      setStats(statsData)
+      setRankings(rankingsData)
     })
   }
 
-  // Load stats on mount
+  // Load stats when filter changes
   useEffect(() => {
-    loadStats(selectedYear)
-  }, [selectedYear])
+    loadStats(filterValue)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterValue.type, filterValue.date?.getTime(), filterValue.month, filterValue.year])
 
-  function handleYearChange(year: string) {
-    setSelectedYear(year)
-    loadStats(year)
+  function handleFilterChange(value: DateRangeFilterValue) {
+    setFilterValue(value)
+  }
+
+  function getFilterText(filter: DateRangeFilterValue): string {
+    switch (filter.type) {
+      case "all":
+        return "ทั้งหมด"
+      case "day":
+        return filter.date ? `วันที่ ${formatThaiDateLong(filter.date)}` : ""
+      case "month": {
+        if (!filter.month || !filter.year) return ""
+        const monthNames = [
+          "มกราคม",
+          "กุมภาพันธ์",
+          "มีนาคม",
+          "เมษายน",
+          "พฤษภาคม",
+          "มิถุนายน",
+          "กรกฎาคม",
+          "สิงหาคม",
+          "กันยายน",
+          "ตุลาคม",
+          "พฤศจิกายน",
+          "ธันวาคม",
+        ]
+        return `เดือน ${monthNames[filter.month - 1]} ${filter.year + 543}`
+      }
+      case "year": {
+        if (!filter.year) return ""
+        return `ปี พ.ศ. ${filter.year + 543}`
+      }
+      default:
+        return ""
+    }
   }
 
   if (!stats) {
@@ -53,39 +95,28 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">ภาพรวม</h1>
-          <p className="text-base text-zinc-600">
-            ภาพรวมระบบและสถิติการใช้งาน
-            {selectedYear !== "all" && (
-              <span className="ml-2 text-zinc-500">(พ.ศ. {parseInt(selectedYear) + 543})</span>
-            )}
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+            สรุปการเข้างานของพนักงาน
+          </h1>
+          <p className="text-base text-zinc-600">สรุปการเข้างานของพนักงานตามช่วงเวลา</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="year-select" className="text-sm font-medium text-zinc-700">
-            ดูข้อมูล:
-          </Label>
-          <Select value={selectedYear} onValueChange={handleYearChange} disabled={isPending}>
-            <SelectTrigger id="year-select" className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">ทั้งหมด</SelectItem>
-              {availableYears.map((year) => {
-                const beYear = year + 543
-                return (
-                  <SelectItem key={year} value={year.toString()}>
-                    พ.ศ. {beYear}
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
-        </div>
+        <DateRangeFilter value={filterValue} onChange={handleFilterChange} disabled={isPending} />
       </div>
 
       <DashboardStatsCards stats={stats} />
       <DashboardCharts stats={stats} />
+
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-900">อันดับการเข้างาน</h2>
+          <p className="text-base text-zinc-600 mt-1">เรียงลำดับตามจำนวนวันทำงาน (มากไปน้อย)</p>
+        </div>
+        <AttendanceRankingTable
+          data={rankings}
+          filterText={getFilterText(filterValue)}
+          totalDaysWithData={stats.totalDaysWithData}
+        />
+      </div>
     </div>
   )
 }

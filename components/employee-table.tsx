@@ -106,8 +106,8 @@ export function EmployeeTable({ initialData }: Props) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-zinc-900">ข้อมูลพนักงาน</h2>
-            <p className="text-sm text-zinc-600">
+            <h2 className="text-xl font-semibold text-zinc-900">ข้อมูลพนักงาน</h2>
+            <p className="text-base text-zinc-600">
               {data.total > 0
                 ? `ทั้งหมด ${data.total.toLocaleString("th-TH")} รายการ`
                 : "ยังไม่มีข้อมูลพนักงานในระบบ"}
@@ -134,12 +134,16 @@ export function EmployeeTable({ initialData }: Props) {
             <Table>
               <TableHeader>
                 <TableRow className="bg-zinc-50">
-                  <TableHead className="font-semibold text-zinc-900">ชื่อ-สกุล</TableHead>
-                  <TableHead className="font-semibold text-zinc-900">อายุ</TableHead>
-                  <TableHead className="font-semibold text-zinc-900">ที่อยู่</TableHead>
-                  <TableHead className="font-semibold text-zinc-900">เบอร์โทรศัพท์</TableHead>
-                  <TableHead className="font-semibold text-zinc-900">ประกันสังคม</TableHead>
-                  <TableHead className="font-semibold text-zinc-900">ค่าแรง</TableHead>
+                  <TableHead className="text-base font-semibold text-zinc-900">ชื่อ-สกุล</TableHead>
+                  <TableHead className="text-base font-semibold text-zinc-900">อายุ</TableHead>
+                  <TableHead className="text-base font-semibold text-zinc-900">ที่อยู่</TableHead>
+                  <TableHead className="text-base font-semibold text-zinc-900">
+                    เบอร์โทรศัพท์
+                  </TableHead>
+                  <TableHead className="text-base font-semibold text-zinc-900">
+                    ประกันสังคม
+                  </TableHead>
+                  <TableHead className="text-base font-semibold text-zinc-900">ค่าแรง</TableHead>
                   <TableHead className="font-semibold text-zinc-900 text-right">
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -148,31 +152,31 @@ export function EmployeeTable({ initialData }: Props) {
               <TableBody>
                 {data.data.map((emp) => (
                   <TableRow key={emp.id} className="hover:bg-zinc-50">
-                    <TableCell>
+                    <TableCell className="text-base">
                       <div className="font-medium text-zinc-900">{emp.name}</div>
-                      <div className="text-xs text-zinc-500">
+                      <div className="text-sm text-zinc-500">
                         รหัสนิ้วมือ #{emp.fingerprint.padStart(3, "0")}
                       </div>
                     </TableCell>
-                    <TableCell>{calculateAge(emp.birthday)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-base">{calculateAge(emp.birthday)}</TableCell>
+                    <TableCell className="text-base">
                       {emp.address && emp.address.trim().length > 0 ? emp.address : "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-base">
                       {emp.phone && emp.phone.trim().length > 0 ? emp.phone : "-"}
                     </TableCell>
                     <TableCell>
                       {emp.hasSocialSecurity ? (
-                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                        <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-sm font-medium text-emerald-700">
                           มี
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600">
+                        <span className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-sm font-medium text-zinc-600">
                           ไม่มี
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-base">
                       {emp.baseSalary.toLocaleString("th-TH", {
                         style: "currency",
                         currency: "THB",

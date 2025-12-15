@@ -8,6 +8,7 @@ const LUNCH_BREAK_OT = 0.5 // 0.5 hours for OT calculation
 const LATE_THRESHOLD_MINUTES = 10 // 10 minutes late threshold
 const LATE_ROUND_UP_MINUTES = 30 // Round up to 30 minutes if late
 const OT_THRESHOLD_MINUTES = 30 // 30 minutes OT threshold
+const OT_ROUNDING_MINUTES = 30 // Round OT up in 30-minute blocks
 const CONSECUTIVE_DAYS_FOR_OT = 7 // 7 consecutive days for full OT
 
 // Convert time string (HH:MM or HH:MM:SS) to minutes
@@ -112,7 +113,7 @@ export function hasLunchBreak(times: string[]): boolean {
 }
 
 // Calculate lunch break hours (12:00-13:00) that overlap with work period
-// Returns 0.5 if lunch break (12:00-13:00) is within work period, otherwise 0
+// Returns 1 hour deduction if lunch break overlaps, otherwise 0
 export function calculateLunchBreakHours(checkInMinutes: number, checkOutMinutes: number): number {
   const lunchStartMinutes = timeToMinutes("12:00")
   const lunchEndMinutes = timeToMinutes("13:00")
@@ -120,7 +121,7 @@ export function calculateLunchBreakHours(checkInMinutes: number, checkOutMinutes
   // Check if lunch break period (12:00-13:00) overlaps with work period
   // Lunch break exists if work period starts before 13:00 and ends after 12:00
   if (checkInMinutes < lunchEndMinutes && checkOutMinutes > lunchStartMinutes) {
-    return LUNCH_BREAK_OT // 0.5 hours
+    return LUNCH_BREAK_DEDUCTION // 1 hour deduction
   }
 
   return 0
@@ -300,13 +301,13 @@ export function calculateWorkDaysAndOT(
   // This ensures we use shift.checkIn as the starting point (even if arrived earlier)
   const { effectiveCheckIn, isLateWarning } = calculateEffectiveCheckIn(actualCheckIn, shiftCheckIn)
 
+  const actualCheckInMinutes = timeToMinutes(actualCheckIn)
   const shiftCheckInMinutes = timeToMinutes(shiftCheckIn)
   const actualCheckOutMinutes = timeToMinutes(actualCheckOut)
   const shiftCheckOutMinutes = timeToMinutes(shiftCheckOut)
 
-  // Always use shift.checkIn as the starting point (even if arrived earlier)
-  // This ensures we calculate based on the shift schedule
-  const workStartMinutes = shiftCheckInMinutes
+  // Use actual check-in clamped to shift start (late uses actual, early does not exceed shift start)
+  const workStartMinutes = Math.max(actualCheckInMinutes, shiftCheckInMinutes)
 
   // Determine work end time based on enableOvertime flag
   // If overtime is disabled, always use shift.checkOut as the end point (even if left later)
@@ -320,22 +321,18 @@ export function calculateWorkDaysAndOT(
     ? actualCheckOut
     : minutesToTime(Math.min(actualCheckOutMinutes, shiftCheckOutMinutes))
 
-  // Step 1: Calculate lunch break hours (12:00-13:00) that overlap with work period
-  // Use shift-based work period for calculation
-  const lunchBreakHours = calculateLunchBreakHours(workStartMinutes, workEndMinutes)
-  const lunchBreakMinutes = lunchBreakHours * 60
+  // Step 1: Calculate base work minutes (guard against negative)
+  const rawWorkMinutes = Math.max(0, workEndMinutes - workStartMinutes)
 
-  // Step 2: Calculate actual work hours (excluding lunch break)
-  // Use shift-based work period: from shift.checkIn to workEndMinutes
-  const totalWorkMinutes = workEndMinutes - workStartMinutes - lunchBreakMinutes
-  const workHoursWithoutLunch = minutesToHours(totalWorkMinutes)
+  // Step 2: Calculate lunch break deduction (1h) overlapping actual work window
+  const lunchBreakDeductionHours = calculateLunchBreakHours(workStartMinutes, workEndMinutes)
+  const lunchBreakMinutes = lunchBreakDeductionHours * 60
 
-  // Step 3: Decide whether lunch break should be regular hours or OT
-  // Rule: Only if work hours (without lunch) > 8, then lunch break becomes OT
-  // If work hours (without lunch) <= 8, lunch break becomes regular hours
-  // When lunch break is regular hours and total > 8, the excess becomes OT
-  // IMPORTANT: If overtime is disabled and workEndMinutes equals shift.checkOut,
-  //            this means working within shift schedule only (8 hours), so no OT
+  // Step 3: Remove lunch first, then evaluate thresholds
+  const netWorkMinutes = Math.max(0, rawWorkMinutes - lunchBreakMinutes)
+  const netWorkHours = minutesToHours(netWorkMinutes)
+
+  // Decision: lunch becomes OT only when net (without lunch) >= 8.0 hours
   let workHours: number
   let workDays: number
   let lunchBreakOT = 0
@@ -351,66 +348,49 @@ export function calculateWorkDaysAndOT(
     !enableOvertime && workEndMinutes === shiftCheckOutMinutes
 
   if (isWorkingFullShiftWithinSchedule) {
-    // Working full shift within schedule (enableOvertime = false, ended at shift.checkOut):
-    // Even if shift is 08:00-17:00 (9 hours total), it counts as:
-    // - 8 hours work
-    // - 0.5 lunch break OT (if lunch break exists)
-    // - 0 OT hours (no overtime when working within shift schedule)
-    workHours = STANDARD_WORK_HOURS // 8 hours
-    workDays = 1
-    lunchBreakOT = lunchBreakHours > 0 ? lunchBreakHours : 0 // 0.5 if lunch break exists
-    otHours = 0 // No OT when working within shift schedule
-  } else if (workHoursWithoutLunch > STANDARD_WORK_HOURS) {
-    // Work hours > 8: lunch break becomes OT
-    workHours = workHoursWithoutLunch
-    workDays = workHours / STANDARD_WORK_HOURS
-    if (workDays >= 1) {
-      workDays = 1
-    }
-    lunchBreakOT = lunchBreakHours
-
-    // Calculate OT hours (excess beyond 8 hours)
-    if (workHours > STANDARD_WORK_HOURS) {
-      otHours = workHours - STANDARD_WORK_HOURS
-      // Cap workHours at 8 for regular work days
+    // Within scheduled shift and ended at shift checkout: treat as standard day
+    // Apply lunch OT only when net hours (excluding lunch) reach >= 8
+    const hasLunchOverlap = lunchBreakDeductionHours > 0
+    if (netWorkHours >= STANDARD_WORK_HOURS) {
+      lunchBreakOT = hasLunchOverlap ? LUNCH_BREAK_OT : 0
+      otHours = 0
       workHours = STANDARD_WORK_HOURS
+    } else {
+      lunchBreakOT = 0
+      otHours = 0
+      // Add lunch back into regular hours (capped at 8)
+      workHours = Math.min(netWorkHours + lunchBreakDeductionHours, STANDARD_WORK_HOURS)
     }
+    workDays = Math.min(1, workHours / STANDARD_WORK_HOURS)
+  } else if (netWorkHours > STANDARD_WORK_HOURS) {
+    // Net > 8: lunch becomes OT, excess becomes OT
+    const hasLunchOverlap = lunchBreakDeductionHours > 0
+    lunchBreakOT = hasLunchOverlap ? LUNCH_BREAK_OT : 0
+    otHours = netWorkHours - STANDARD_WORK_HOURS
+    workHours = STANDARD_WORK_HOURS
+    workDays = 1
   } else {
-    // Work hours <= 8: lunch break becomes regular hours
-    const totalHoursWithLunch = workHoursWithoutLunch + lunchBreakHours
+    // Net <= 8: lunch is regular, no OT
+    const totalHoursWithLunch = netWorkHours + lunchBreakDeductionHours
     lunchBreakOT = 0
 
-    // If work hours (without lunch) = 8 exactly, lunch break is included in regular hours
-    // Total becomes 8.5 hours = 1 day (8.0 hours), no OT
-    // If work hours (without lunch) < 8, lunch break fills up to 8 hours
-    if (workHoursWithoutLunch === STANDARD_WORK_HOURS) {
-      // Exactly 8 hours work + 0.5 lunch = 8.5 total = 1 day (8.0 hours), no OT
-      workHours = STANDARD_WORK_HOURS // Cap at 8.0 hours for regular work days
-      workDays = 1
-      otHours = 0
-    } else {
-      // Less than 8 hours work, lunch break fills up
-      workHours = totalHoursWithLunch
-      workDays = workHours / STANDARD_WORK_HOURS
-      if (workDays >= 1) {
-        workDays = 1
-      }
-
-      // If total > 8, excess becomes OT
-      if (totalHoursWithLunch > STANDARD_WORK_HOURS) {
-        otHours = totalHoursWithLunch - STANDARD_WORK_HOURS
-        workHours = STANDARD_WORK_HOURS
-      } else {
-        otHours = 0
-      }
-    }
+    workHours = Math.min(totalHoursWithLunch, STANDARD_WORK_HOURS)
+    workDays = Math.min(1, workHours / STANDARD_WORK_HOURS)
+    otHours = 0
   }
+
+  // Apply OT threshold/rounding only for standard overtime days (non-holiday/non-consecutive)
+  // and only when overtime is explicitly enabled
+  const shouldApplyOtThreshold = enableOvertime && !isConsecutiveDay7 && !isHoliday
+  const normalizedOtHours = shouldApplyOtThreshold
+    ? applyOvertimeThresholdAndRounding(otHours)
+    : otHours
 
   // Round to 1 decimal place
   return {
     workDays: Math.round(workDays * 10) / 10,
     workHours: Math.round(workHours * 10) / 10,
-    otHours: Math.round(otHours * 10) / 10,
+    otHours: Math.round(normalizedOtHours * 10) / 10,
     lunchBreakOT: Math.round(lunchBreakOT * 10) / 10,
     effectiveCheckIn,
     isLateWarning,
@@ -438,4 +418,20 @@ export function getCheckInCheckOut(times: string[]): {
   const checkOut = times.length > 1 ? sortedTimes[sortedTimes.length - 1] : "17:00"
 
   return { checkIn, checkOut }
+}
+
+// Enforce minimum OT threshold and round up in fixed blocks
+function applyOvertimeThresholdAndRounding(
+  otHours: number,
+  thresholdMinutes: number = OT_THRESHOLD_MINUTES,
+  roundingMinutes: number = OT_ROUNDING_MINUTES
+): number {
+  const otMinutes = Math.max(0, otHours * 60)
+
+  if (otMinutes < thresholdMinutes) {
+    return 0
+  }
+
+  const roundedMinutes = Math.ceil(otMinutes / roundingMinutes) * roundingMinutes
+  return roundedMinutes / 60
 }

@@ -263,19 +263,19 @@ export function FingerprintTable({ initialData }: Props) {
           <Table>
             <TableHeader>
               <TableRow className="bg-zinc-50">
-                <TableHead className="font-semibold text-zinc-900">ID</TableHead>
-                <TableHead className="font-semibold text-zinc-900">ชื่อพนักงาน</TableHead>
-                <TableHead className="font-semibold text-zinc-900">วันที่</TableHead>
-                <TableHead className="font-semibold text-zinc-900">เวลา</TableHead>
+                <TableHead className="text-base font-semibold text-zinc-900">ID</TableHead>
+                <TableHead className="text-base font-semibold text-zinc-900">ชื่อพนักงาน</TableHead>
+                <TableHead className="text-base font-semibold text-zinc-900">วันที่</TableHead>
+                <TableHead className="text-base font-semibold text-zinc-900">เวลา</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.data.map((row) => (
                 <TableRow key={row.id} className="hover:bg-zinc-50">
-                  <TableCell className="font-mono text-sm">
+                  <TableCell className="font-mono text-base text-zinc-900">
                     #{row.id.toString().padStart(10, "0")}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-base">
                     {row.employeeName ? (
                       <span className="font-medium text-zinc-900">{row.employeeName}</span>
                     ) : (
@@ -284,8 +284,10 @@ export function FingerprintTable({ initialData }: Props) {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{formatDate(row.date)}</TableCell>
-                  <TableCell className="font-mono text-sm">{row.time}</TableCell>
+                  <TableCell className="font-mono text-base text-zinc-900">
+                    {formatDate(row.date)}
+                  </TableCell>
+                  <TableCell className="font-mono text-base text-zinc-900">{row.time}</TableCell>
                 </TableRow>
               ))}
               {/* Fill empty rows to always show 10 rows */}

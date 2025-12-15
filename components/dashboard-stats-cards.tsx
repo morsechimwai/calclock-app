@@ -21,7 +21,7 @@ export function DashboardStatsCards({ stats }: Props) {
       <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-zinc-600">จำนวนพนักงาน</p>
+            <p className="text-base font-medium text-zinc-600">จำนวนพนักงาน</p>
             <p className="mt-2 text-3xl font-bold text-zinc-900">
               {stats.totalEmployees.toLocaleString("th-TH")}
             </p>
@@ -65,7 +65,7 @@ export function DashboardStatsCards({ stats }: Props) {
             <p className="mt-2 text-3xl font-bold text-zinc-900">
               {stats.totalDaysWithData.toLocaleString("th-TH")}
             </p>
-            <p className="mt-1 text-xs text-zinc-500">จำนวนวันที่แตกต่างกันที่มีการบันทึกเวลา</p>
+            <p className="mt-1 text-sm text-zinc-500">จำนวนวันที่แตกต่างกันที่มีการบันทึกเวลา</p>
           </div>
           <div className="rounded-full bg-zinc-100 p-3">
             <Fingerprint className="h-6 w-6 text-zinc-600" />
