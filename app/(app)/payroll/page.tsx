@@ -89,6 +89,7 @@ export default function PayrollPage() {
           {payrollData.length > 0 ? (
             <PayrollTable
               data={payrollData}
+              dateRange={dateRange}
               onRefresh={() => {
                 if (dateRange?.from && dateRange?.to) {
                   startTransition(async () => {
