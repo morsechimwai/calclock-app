@@ -21,6 +21,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { EmptyState, EmptyStateIcons } from "@/components/empty-state"
 import {
   AlertDialog,
@@ -81,13 +88,35 @@ export function FingerprintTable({ initialData }: Props) {
     error: string | null
   } | null>(null)
   const [showDialog, setShowDialog] = useState(false)
+  const [onlyWithEmployee, setOnlyWithEmployee] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
 
-  // Sync with initialData when it changes (e.g., after refresh)
+  // Sync with initialData when it changes (only when showing all)
   useEffect(() => {
-    setData(initialData)
-    setCurrentPage(initialData.page)
-  }, [initialData])
+    if (!onlyWithEmployee) {
+      setData(initialData)
+      setCurrentPage(initialData.page)
+    }
+  }, [initialData, onlyWithEmployee])
+
+  // Load data when filter changes
+  useEffect(() => {
+    if (onlyWithEmployee) {
+      setIsLoadingPage(true)
+      setCurrentPage(1)
+      startTransition(async () => {
+        try {
+          const result = await getFingerprintsPaginatedAction(1, LIMIT, onlyWithEmployee)
+          setData(result)
+        } catch (error) {
+          console.error("Failed to fetch filtered data:", error)
+        } finally {
+          setIsLoadingPage(false)
+        }
+      })
+    }
+    // Note: When switching back to "all", the first useEffect will handle it
+  }, [onlyWithEmployee])
 
   function handlePageChange(newPage: number) {
     if (newPage < 1 || newPage > data.totalPages || isLoadingPage || isPending) return
@@ -97,7 +126,7 @@ export function FingerprintTable({ initialData }: Props) {
 
     startTransition(async () => {
       try {
-        const result = await getFingerprintsPaginatedAction(newPage, LIMIT)
+        const result = await getFingerprintsPaginatedAction(newPage, LIMIT, onlyWithEmployee)
         setData(result)
       } catch (error) {
         console.error("Failed to fetch page:", error)
@@ -193,6 +222,19 @@ export function FingerprintTable({ initialData }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Select
+            value={onlyWithEmployee ? "with-name" : "all"}
+            onValueChange={(value) => setOnlyWithEmployee(value === "with-name")}
+            disabled={isLoadingPage || isPending}
+          >
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder="เลือกการแสดงผล" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">แสดงทั้งหมด</SelectItem>
+              <SelectItem value="with-name">แสดงเฉพาะพนักงานที่มีชื่อ-นามสกุล</SelectItem>
+            </SelectContent>
+          </Select>
           <div className="relative">
             <Button
               type="button"

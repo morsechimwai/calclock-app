@@ -17,9 +17,10 @@ export default function DashboardPage() {
   })
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [rankings, setRankings] = useState<AttendanceRanking[]>([])
+  const [onlyWithEmployee, setOnlyWithEmployee] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  function loadStats(filter: DateRangeFilterValue) {
+  function loadStats(filter: DateRangeFilterValue, onlyWithEmployeeFilter: boolean) {
     startTransition(async () => {
       const [statsData, rankingsData] = await Promise.all([
         getDashboardStats(
@@ -32,7 +33,8 @@ export default function DashboardPage() {
           filter.type,
           filter.date,
           filter.month,
-          filter.type === "year" ? filter.year : filter.type === "month" ? filter.year : null
+          filter.type === "year" ? filter.year : filter.type === "month" ? filter.year : null,
+          onlyWithEmployeeFilter
         ),
       ])
       setStats(statsData)
@@ -42,9 +44,15 @@ export default function DashboardPage() {
 
   // Load stats when filter changes
   useEffect(() => {
-    loadStats(filterValue)
+    loadStats(filterValue, onlyWithEmployee)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterValue.type, filterValue.date?.getTime(), filterValue.month, filterValue.year])
+  }, [
+    filterValue.type,
+    filterValue.date?.getTime(),
+    filterValue.month,
+    filterValue.year,
+    onlyWithEmployee,
+  ])
 
   function handleFilterChange(value: DateRangeFilterValue) {
     setFilterValue(value)
@@ -115,6 +123,8 @@ export default function DashboardPage() {
           data={rankings}
           filterText={getFilterText(filterValue)}
           totalDaysWithData={stats.totalDaysWithData}
+          onlyWithEmployee={onlyWithEmployee}
+          onFilterChange={setOnlyWithEmployee}
         />
       </div>
     </div>

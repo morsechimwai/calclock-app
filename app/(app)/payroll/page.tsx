@@ -107,12 +107,6 @@ export default function PayrollPage() {
         <div className="space-y-4">
           {payrollData.length > 0 ? (
             <>
-              <div className="flex justify-end">
-                <Button onClick={handlePrint} variant="outline" className="gap-2">
-                  <Printer className="h-4 w-4" />
-                  พิมพ์
-                </Button>
-              </div>
               <PayrollTable
                 data={payrollData}
                 dateRange={dateRange}

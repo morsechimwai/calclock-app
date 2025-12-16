@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
+import { generatePayrollPrintHTML } from "@/lib/utils/generate-payroll-print-html"
 import type { PayrollData } from "@/app/(app)/payroll/actions"
 import { addFingerprintTime, removeFingerprintTime } from "@/app/(app)/payroll/actions"
 import { format, isBefore, isAfter, startOfDay } from "date-fns"
@@ -45,7 +46,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Fingerprint, Plus, X, ClockAlert, CalendarCheck, ChevronDownIcon } from "lucide-react"
+import {
+  Fingerprint,
+  Plus,
+  X,
+  ClockAlert,
+  CalendarCheck,
+  ChevronDownIcon,
+  Printer,
+  Columns,
+} from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 type Props = {
   data: PayrollData[]
@@ -53,9 +72,15 @@ type Props = {
   onRefresh?: () => void
 }
 
+type ColumnKey = "date" | "fingerprint" | "workDays" | "lunchBreakOT" | "otHours"
+
 export function PayrollTable({ data, dateRange, onRefresh }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(
+    new Set(["date", "fingerprint", "workDays", "lunchBreakOT", "otHours"])
+  )
   const [addTimeDialogOpen, setAddTimeDialogOpen] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<{
     fingerprint: string
@@ -74,6 +99,30 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
   const [newDate, setNewDate] = useState<Date | undefined>(new Date())
   const [newDateTime, setNewDateTime] = useState("10:30")
   const [datePickerOpen, setDatePickerOpen] = useState(false)
+
+  // Get all row keys for select all functionality
+  const allRowKeys = React.useMemo(() => {
+    const keys = new Set<string>()
+    data.forEach((employee) => {
+      employee.entries.forEach((entry) => {
+        keys.add(`${employee.fingerprint}-${entry.date}`)
+      })
+    })
+    return keys
+  }, [data])
+
+  const isAllSelected = allRowKeys.size > 0 && selectedRows.size === allRowKeys.size
+  const isIndeterminate = selectedRows.size > 0 && selectedRows.size < allRowKeys.size
+
+  // Count unique employees from selected rows
+  const selectedEmployeeCount = React.useMemo(() => {
+    const fingerprints = new Set<string>()
+    selectedRows.forEach((rowKey) => {
+      const fingerprint = rowKey.split("-")[0]
+      fingerprints.add(fingerprint)
+    })
+    return fingerprints.size
+  }, [selectedRows])
 
   if (data.length === 0) {
     return (
@@ -253,336 +302,659 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
     })
   }
 
+  function handleToggleSelect(rowKey: string) {
+    setSelectedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(rowKey)) {
+        next.delete(rowKey)
+      } else {
+        next.add(rowKey)
+      }
+      return next
+    })
+  }
+
+  function handleToggleSelectAll() {
+    if (isAllSelected) {
+      setSelectedRows(new Set())
+    } else {
+      setSelectedRows(new Set(allRowKeys))
+    }
+  }
+
+  function handleToggleColumn(column: ColumnKey) {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev)
+      if (next.has(column)) {
+        next.delete(column)
+      } else {
+        next.add(column)
+      }
+      return next
+    })
+  }
+
+  function handlePrint() {
+    if (selectedRows.size === 0) {
+      return
+    }
+
+    // Filter data to only selected rows
+    const selectedData = data
+      .map((employee) => {
+        const selectedEntries = employee.entries.filter((entry) =>
+          selectedRows.has(`${employee.fingerprint}-${entry.date}`)
+        )
+        return {
+          ...employee,
+          entries: selectedEntries,
+        }
+      })
+      .filter((employee) => employee.entries.length > 0)
+
+    // Use existing print function
+    const htmlContent = generatePayrollPrintHTML(selectedData, dateRange)
+    const printWindow = window.open("", "_blank")
+
+    if (printWindow) {
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
+    }
+  }
+
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-b border-zinc-200 bg-zinc-50 hover:bg-zinc-50">
-              <TableHead className="w-[200px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
-                ชื่อ-นามสกุล
-              </TableHead>
-              <TableHead className="w-[150px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
-                วันที่
-              </TableHead>
-              <TableHead className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
-                ข้อมูลลายนิ้วมือ
-              </TableHead>
-              <TableHead className="w-[120px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
-                วันทํางาน
-              </TableHead>
-              <TableHead className="w-[120px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
-                พักกลางวัน (โอที)
-              </TableHead>
-              <TableHead className="w-[120px] px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
-                ล่วงเวลา (โอที)
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((employee) => {
-              // Create shift map from array
-              const shiftMap = new Map<string, Shift>()
-              employee.shifts.forEach((shift) => {
-                shiftMap.set(shift.date, shift)
-              })
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        {data.length > 0 && (
+          <Button
+            onClick={handlePrint}
+            variant="outline"
+            className="gap-2"
+            disabled={selectedRows.size === 0}
+          >
+            <Printer className="h-4 w-4" />
+            พิมพ์ ({selectedEmployeeCount})
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Columns className="h-4 w-4" />
+              คอลัมน์
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>เลือกคอลัมน์ที่แสดง</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem
+              checked={visibleColumns.has("date")}
+              onCheckedChange={() => handleToggleColumn("date")}
+            >
+              วันที่
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibleColumns.has("fingerprint")}
+              onCheckedChange={() => handleToggleColumn("fingerprint")}
+            >
+              ข้อมูลลายนิ้วมือ
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibleColumns.has("workDays")}
+              onCheckedChange={() => handleToggleColumn("workDays")}
+            >
+              วันทํางาน
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibleColumns.has("lunchBreakOT")}
+              onCheckedChange={() => handleToggleColumn("lunchBreakOT")}
+            >
+              พักกลางวัน (โอที)
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={visibleColumns.has("otHours")}
+              onCheckedChange={() => handleToggleColumn("otHours")}
+            >
+              ล่วงเวลา (โอที)
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
-              // Get all dates for this employee to check consecutive days
-              const employeeDates = employee.entries.map((e) => e.date).sort()
+      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-b border-zinc-200 bg-zinc-50 hover:bg-zinc-50">
+                <TableHead className="w-[50px] border-r border-zinc-200 px-4 py-3 text-center">
+                  <Checkbox
+                    checked={isIndeterminate ? "indeterminate" : isAllSelected}
+                    onCheckedChange={handleToggleSelectAll}
+                  />
+                </TableHead>
+                <TableHead className="w-[200px] border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900">
+                  ชื่อ-นามสกุล
+                </TableHead>
+                {visibleColumns.has("date") && (
+                  <TableHead
+                    className={`w-[150px] px-4 py-3 text-sm font-semibold text-zinc-900 ${
+                      visibleColumns.has("fingerprint") ||
+                      visibleColumns.has("workDays") ||
+                      visibleColumns.has("lunchBreakOT") ||
+                      visibleColumns.has("otHours")
+                        ? "border-r border-zinc-200"
+                        : ""
+                    }`}
+                  >
+                    วันที่
+                  </TableHead>
+                )}
+                {visibleColumns.has("fingerprint") && (
+                  <TableHead
+                    className={`px-4 py-3 text-sm font-semibold text-zinc-900 ${
+                      visibleColumns.has("workDays") ||
+                      visibleColumns.has("lunchBreakOT") ||
+                      visibleColumns.has("otHours")
+                        ? "border-r border-zinc-200"
+                        : ""
+                    }`}
+                  >
+                    ข้อมูลลายนิ้วมือ
+                  </TableHead>
+                )}
+                {visibleColumns.has("workDays") && (
+                  <TableHead
+                    className={`w-[120px] px-4 py-3 text-sm font-semibold text-zinc-900 text-center ${
+                      visibleColumns.has("lunchBreakOT") || visibleColumns.has("otHours")
+                        ? "border-r border-zinc-200"
+                        : ""
+                    }`}
+                  >
+                    วันทํางาน
+                  </TableHead>
+                )}
+                {visibleColumns.has("lunchBreakOT") && (
+                  <TableHead
+                    className={`w-[120px] px-4 py-3 text-sm font-semibold text-zinc-900 text-center ${
+                      visibleColumns.has("otHours") ? "border-r border-zinc-200" : ""
+                    }`}
+                  >
+                    พักกลางวัน (โอที)
+                  </TableHead>
+                )}
+                {visibleColumns.has("otHours") && (
+                  <TableHead className="w-[120px] px-4 py-3 text-sm font-semibold text-zinc-900 text-center">
+                    ล่วงเวลา (โอที)
+                  </TableHead>
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((employee) => {
+                // Create shift map from array
+                const shiftMap = new Map<string, Shift>()
+                employee.shifts.forEach((shift) => {
+                  shiftMap.set(shift.date, shift)
+                })
 
-              // Calculate totals for this employee
-              let employeeWorkDays = 0
-              let employeeOTHours = 0
-              let employeeLunchBreakOT = 0
+                // Get all dates for this employee to check consecutive days
+                const employeeDates = employee.entries.map((e) => e.date).sort()
 
-              employee.entries.forEach((entry) => {
-                // Only calculate if there are exactly 2 time entries
-                if (entry.times.length === 2) {
-                  const timeStrings = entry.times.map((t) => t.time)
-                  const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
-                  const shift = getShiftForDate(entry.date, shiftMap)
-                  const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
-                  const { workDays, workHours, otHours, lunchBreakOT } = calculateWorkDaysAndOT(
-                    checkIn,
-                    checkOut,
-                    shift.checkIn,
-                    shift.checkOut,
-                    shift.isHoliday,
-                    isConsecutive7,
-                    timeStrings,
-                    shift.enableOvertime
-                  )
-                  employeeWorkDays += workDays
-                  employeeOTHours += otHours
-                  employeeLunchBreakOT += lunchBreakOT
-                }
-              })
+                // Calculate totals for this employee
+                let employeeWorkDays = 0
+                let employeeOTHours = 0
+                let employeeLunchBreakOT = 0
 
-              // Round totals to 1 decimal place
-              employeeWorkDays = Math.round(employeeWorkDays * 10) / 10
-              employeeOTHours = Math.round(employeeOTHours * 10) / 10
-              employeeLunchBreakOT = Math.round(employeeLunchBreakOT * 10) / 10
-
-              return (
-                <React.Fragment key={employee.fingerprint}>
-                  {employee.entries.map((entry, entryIndex) => {
-                    // Parse date string (YYYY-MM-DD) to Date object
-                    const [year, month, day] = entry.date.split("-").map(Number)
-                    const date = new Date(year, month - 1, day)
-                    const formattedDate = formatThaiDateLong(date)
-
-                    // Format times (HH:MM:SS) to HH:MM (already sorted in actions)
-                    const timesFormatted = entry.times.map((t) => {
-                      const [hour, minute] = t.time.split(":")
-                      return { time: `${hour}:${minute}`, id: t.id, isManual: t.isManual }
-                    })
-
-                    // Check if all times are manual (newly added date entry)
-                    const isAllManual =
-                      entry.times.length > 0 && entry.times.every((t) => t.isManual)
-
-                    // Only calculate if there are exactly 2 time entries
-                    const hasTwoTimes = entry.times.length === 2
+                employee.entries.forEach((entry) => {
+                  // Only calculate if there are exactly 2 time entries
+                  if (entry.times.length === 2) {
                     const timeStrings = entry.times.map((t) => t.time)
                     const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
                     const shift = getShiftForDate(entry.date, shiftMap)
                     const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
+                    const { workDays, workHours, otHours, lunchBreakOT } = calculateWorkDaysAndOT(
+                      checkIn,
+                      checkOut,
+                      shift.checkIn,
+                      shift.checkOut,
+                      shift.isHoliday,
+                      isConsecutive7,
+                      timeStrings,
+                      shift.enableOvertime
+                    )
+                    employeeWorkDays += workDays
+                    employeeOTHours += otHours
+                    employeeLunchBreakOT += lunchBreakOT
+                  }
+                })
 
-                    // Check if shift is configured for this date (not using default values)
-                    const hasShiftConfigured = shiftMap.has(entry.date)
+                // Round totals to 1 decimal place
+                employeeWorkDays = Math.round(employeeWorkDays * 10) / 10
+                employeeOTHours = Math.round(employeeOTHours * 10) / 10
+                employeeLunchBreakOT = Math.round(employeeLunchBreakOT * 10) / 10
 
-                    // Calculate work days and OT hours (only if 2 times)
-                    const { workDays, workHours, otHours, lunchBreakOT, isLateWarning } =
-                      hasTwoTimes
-                        ? calculateWorkDaysAndOT(
-                            checkIn,
-                            checkOut,
-                            shift.checkIn,
-                            shift.checkOut,
-                            shift.isHoliday,
-                            isConsecutive7,
-                            timeStrings,
-                            shift.enableOvertime
-                          )
-                        : {
-                            workDays: 0,
-                            workHours: 0,
-                            otHours: 0,
-                            lunchBreakOT: 0,
-                            isLateWarning: false,
-                          }
+                return (
+                  <React.Fragment key={employee.fingerprint}>
+                    {employee.entries.map((entry, entryIndex) => {
+                      // Parse date string (YYYY-MM-DD) to Date object
+                      const [year, month, day] = entry.date.split("-").map(Number)
+                      const date = new Date(year, month - 1, day)
+                      const formattedDate = formatThaiDateLong(date)
 
-                    // Check if this is a holiday
-                    const isHoliday = shift.isHoliday
+                      // Format times (HH:MM:SS) to HH:MM (already sorted in actions)
+                      const timesFormatted = entry.times.map((t) => {
+                        const [hour, minute] = t.time.split(":")
+                        return { time: `${hour}:${minute}`, id: t.id, isManual: t.isManual }
+                      })
 
-                    // Check if OT is from enableOvertime (not consecutive day 7 or holiday)
-                    // Show blue OT tag only when enableOvertime is explicitly enabled
-                    const hasOvertimeFromEnableOT =
-                      shift.enableOvertime && !isConsecutive7 && !isHoliday
+                      // Check if all times are manual (newly added date entry)
+                      const isAllManual =
+                        entry.times.length > 0 && entry.times.every((t) => t.isManual)
 
-                    return (
-                      <TableRow
-                        key={`${employee.fingerprint}-${entry.date}-${entryIndex}`}
-                        className={`border-b border-zinc-200 ${
-                          isConsecutive7
-                            ? "bg-green-50 hover:bg-green-100"
-                            : isHoliday && !isAllManual
-                            ? "bg-amber-50 hover:bg-amber-100"
-                            : isAllManual
-                            ? "bg-amber-50 hover:bg-amber-100"
-                            : "hover:bg-zinc-50/50"
+                      // Only calculate if there are exactly 2 time entries
+                      const hasTwoTimes = entry.times.length === 2
+                      const timeStrings = entry.times.map((t) => t.time)
+                      const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
+                      const shift = getShiftForDate(entry.date, shiftMap)
+                      const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
+
+                      // Check if shift is configured for this date (not using default values)
+                      const hasShiftConfigured = shiftMap.has(entry.date)
+
+                      // Calculate work days and OT hours (only if 2 times)
+                      const { workDays, workHours, otHours, lunchBreakOT, isLateWarning } =
+                        hasTwoTimes
+                          ? calculateWorkDaysAndOT(
+                              checkIn,
+                              checkOut,
+                              shift.checkIn,
+                              shift.checkOut,
+                              shift.isHoliday,
+                              isConsecutive7,
+                              timeStrings,
+                              shift.enableOvertime
+                            )
+                          : {
+                              workDays: 0,
+                              workHours: 0,
+                              otHours: 0,
+                              lunchBreakOT: 0,
+                              isLateWarning: false,
+                            }
+
+                      // Check if this is a holiday
+                      const isHoliday = shift.isHoliday
+
+                      // Check if OT is from enableOvertime (not consecutive day 7 or holiday)
+                      // Show blue OT tag only when enableOvertime is explicitly enabled
+                      const hasOvertimeFromEnableOT =
+                        shift.enableOvertime && !isConsecutive7 && !isHoliday
+
+                      return (
+                        <TableRow
+                          key={`${employee.fingerprint}-${entry.date}-${entryIndex}`}
+                          className={`border-b border-zinc-200 ${
+                            isConsecutive7
+                              ? "bg-green-50 hover:bg-green-100"
+                              : isHoliday && !isAllManual
+                              ? "bg-amber-50 hover:bg-amber-100"
+                              : isAllManual
+                              ? "bg-amber-50 hover:bg-amber-100"
+                              : "hover:bg-zinc-50/50"
+                          }`}
+                        >
+                          {entryIndex === 0 && (
+                            <>
+                              <TableCell
+                                rowSpan={employee.entries.length + 2}
+                                className="align-top border-r border-zinc-200 px-4 py-3 text-center"
+                              >
+                                <Checkbox
+                                  checked={
+                                    employee.entries.length > 0 &&
+                                    employee.entries.every((e) =>
+                                      selectedRows.has(`${employee.fingerprint}-${e.date}`)
+                                    )
+                                  }
+                                  onCheckedChange={(checked) => {
+                                    employee.entries.forEach((e) => {
+                                      const key = `${employee.fingerprint}-${e.date}`
+                                      if (checked) {
+                                        setSelectedRows((prev) => new Set([...prev, key]))
+                                      } else {
+                                        setSelectedRows((prev) => {
+                                          const next = new Set(prev)
+                                          next.delete(key)
+                                          return next
+                                        })
+                                      }
+                                    })
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell
+                                rowSpan={employee.entries.length + 2}
+                                className="align-top border-r border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-900 bg-white"
+                              >
+                                {employee.employeeName ||
+                                  `ไม่พบข้อมูล (รหัส: ${employee.fingerprint})`}
+                              </TableCell>
+                            </>
+                          )}
+                          {visibleColumns.has("date") && (
+                            <TableCell
+                              className={`px-4 py-3 text-sm text-zinc-900 ${
+                                visibleColumns.has("fingerprint") ||
+                                visibleColumns.has("workDays") ||
+                                visibleColumns.has("lunchBreakOT") ||
+                                visibleColumns.has("otHours")
+                                  ? "border-r border-zinc-200"
+                                  : ""
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span>{formattedDate}</span>
+                                {hasShiftConfigured && (
+                                  <span title="มีการจัดการเวลาเข้างาน">
+                                    <CalendarCheck className="h-4 w-4 text-zinc-500" />
+                                  </span>
+                                )}
+                                {(isConsecutive7 || isHoliday || hasOvertimeFromEnableOT) && (
+                                  <span
+                                    className={`px-2.5 py-1 rounded text-white text-sm font-semibold ${
+                                      isConsecutive7
+                                        ? "bg-green-600"
+                                        : isHoliday
+                                        ? "bg-amber-600"
+                                        : "bg-blue-600"
+                                    }`}
+                                  >
+                                    OT
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
+                          {visibleColumns.has("fingerprint") && (
+                            <TableCell
+                              className={`px-4 py-3 text-sm text-zinc-900 font-mono ${
+                                visibleColumns.has("workDays") ||
+                                visibleColumns.has("lunchBreakOT") ||
+                                visibleColumns.has("otHours")
+                                  ? "border-r border-zinc-200"
+                                  : ""
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                {timesFormatted.length > 0 ? (
+                                  <>
+                                    {timesFormatted.map((timeData, timeIndex) => {
+                                      // Check if this is the check-in time and has late warning
+                                      const isCheckInTime = timeIndex === 0
+                                      const showLateWarning = isCheckInTime && isLateWarning
+
+                                      return (
+                                        <div
+                                          key={timeData.id}
+                                          className={`flex items-center gap-1 px-2 py-1 rounded-md ${
+                                            showLateWarning
+                                              ? "bg-red-50 border border-red-200"
+                                              : timeData.isManual
+                                              ? "bg-amber-50 border border-amber-200"
+                                              : "bg-zinc-100"
+                                          }`}
+                                        >
+                                          {showLateWarning ? (
+                                            <ClockAlert className="size-4 text-red-600" />
+                                          ) : (
+                                            <Fingerprint className="size-4" />
+                                          )}
+                                          <span
+                                            className={
+                                              showLateWarning ? "text-red-600 font-medium" : ""
+                                            }
+                                          >
+                                            {timeData.time}
+                                          </span>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                            onClick={() => handleRemoveTimeClick(timeData.id)}
+                                            disabled={isPending}
+                                            title="ลบเวลา"
+                                          >
+                                            <X className="size-3" />
+                                          </Button>
+                                        </div>
+                                      )
+                                    })}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1 text-sm"
+                                      onClick={() =>
+                                        handleAddTime(
+                                          employee.fingerprint,
+                                          entry.date,
+                                          employee.employeeName,
+                                          formattedDate
+                                        )
+                                      }
+                                      disabled={isPending}
+                                      title="เพิ่มเวลา"
+                                    >
+                                      <Plus className="size-3" />
+                                      เพิ่มเวลา
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center px-2 py-1 rounded-md bg-zinc-100">
+                                      <Fingerprint className="size-4 mr-1" />-
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="gap-1 text-sm"
+                                      onClick={() =>
+                                        handleAddTime(
+                                          employee.fingerprint,
+                                          entry.date,
+                                          employee.employeeName,
+                                          formattedDate
+                                        )
+                                      }
+                                      disabled={isPending}
+                                      title="เพิ่มเวลา"
+                                    >
+                                      <Plus className="size-3" />
+                                      เพิ่มเวลา
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
+                          {visibleColumns.has("workDays") && (
+                            <TableCell
+                              className={`px-4 py-3 text-sm text-zinc-900 text-center font-mono ${
+                                visibleColumns.has("lunchBreakOT") || visibleColumns.has("otHours")
+                                  ? "border-r border-zinc-200"
+                                  : ""
+                              }`}
+                            >
+                              {hasTwoTimes
+                                ? workDays > 0
+                                  ? `${workDays.toFixed(1)} (${workHours.toFixed(1)} ชม.)`
+                                  : workDays.toFixed(1)
+                                : "-"}
+                            </TableCell>
+                          )}
+                          {visibleColumns.has("lunchBreakOT") && (
+                            <TableCell
+                              className={`px-4 py-3 text-sm text-zinc-900 text-center font-mono ${
+                                visibleColumns.has("otHours") ? "border-r border-zinc-200" : ""
+                              }`}
+                            >
+                              {hasTwoTimes
+                                ? lunchBreakOT > 0
+                                  ? lunchBreakOT.toFixed(1)
+                                  : "0"
+                                : "-"}
+                            </TableCell>
+                          )}
+                          {visibleColumns.has("otHours") && (
+                            <TableCell className="px-4 py-3 text-sm text-zinc-900 text-center font-mono">
+                              {hasTwoTimes ? (otHours > 0 ? otHours.toFixed(1) : "0") : "-"}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )
+                    })}
+                    {/* Row for adding new date */}
+                    <TableRow className="border-b border-zinc-200 hover:bg-zinc-50/50">
+                      <TableCell className="border-r border-zinc-200 px-4 py-3"></TableCell>
+                      <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-sm"
+                          onClick={() => handleAddDate(employee.fingerprint, employee.employeeName)}
+                          disabled={isPending}
+                          title="เพิ่มวันที่ใหม่"
+                        >
+                          <Plus className="size-3" />
+                          เพิ่มวันที่
+                        </Button>
+                      </TableCell>
+                      {visibleColumns.has("date") && (
+                        <TableCell
+                          className={`px-4 py-3 text-sm text-zinc-900 font-mono ${
+                            visibleColumns.has("fingerprint") ||
+                            visibleColumns.has("workDays") ||
+                            visibleColumns.has("lunchBreakOT") ||
+                            visibleColumns.has("otHours")
+                              ? "border-r border-zinc-200"
+                              : ""
+                          }`}
+                        >
+                          -
+                        </TableCell>
+                      )}
+                      {visibleColumns.has("fingerprint") && (
+                        <TableCell
+                          className={`px-4 py-3 text-sm text-zinc-900 font-mono ${
+                            visibleColumns.has("workDays") ||
+                            visibleColumns.has("lunchBreakOT") ||
+                            visibleColumns.has("otHours")
+                              ? "border-r border-zinc-200"
+                              : ""
+                          }`}
+                        >
+                          -
+                        </TableCell>
+                      )}
+                      {visibleColumns.has("workDays") && (
+                        <TableCell
+                          className={`px-4 py-3 text-sm text-zinc-900 text-center font-mono ${
+                            visibleColumns.has("lunchBreakOT") || visibleColumns.has("otHours")
+                              ? "border-r border-zinc-200"
+                              : ""
+                          }`}
+                        >
+                          -
+                        </TableCell>
+                      )}
+                      {visibleColumns.has("lunchBreakOT") && (
+                        <TableCell
+                          className={`px-4 py-3 text-sm text-zinc-900 text-center font-mono ${
+                            visibleColumns.has("otHours") ? "border-r border-zinc-200" : ""
+                          }`}
+                        >
+                          -
+                        </TableCell>
+                      )}
+                      {visibleColumns.has("otHours") && (
+                        <TableCell className="px-4 py-3 text-sm text-zinc-900 text-center font-mono">
+                          -
+                        </TableCell>
+                      )}
+                    </TableRow>
+                    {/* Summary row for this employee */}
+                    <TableRow className="border-t-2 border-zinc-300 bg-zinc-100 hover:bg-zinc-100">
+                      <TableCell className="border-r border-zinc-200 px-4 py-3"></TableCell>
+                      <TableCell
+                        className={`px-4 py-3 text-sm font-semibold text-zinc-900 ${
+                          visibleColumns.has("date") ||
+                          visibleColumns.has("fingerprint") ||
+                          visibleColumns.has("workDays") ||
+                          visibleColumns.has("lunchBreakOT") ||
+                          visibleColumns.has("otHours")
+                            ? "border-r border-zinc-200"
+                            : ""
                         }`}
                       >
-                        {entryIndex === 0 && (
-                          <TableCell
-                            rowSpan={employee.entries.length + 2}
-                            className="align-top border-r border-zinc-200 px-4 py-3 text-sm font-medium text-zinc-900 bg-white"
-                          >
-                            {employee.employeeName || `ไม่พบข้อมูล (รหัส: ${employee.fingerprint})`}
-                          </TableCell>
-                        )}
-                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900">
-                          <div className="flex items-center gap-2">
-                            <span>{formattedDate}</span>
-                            {hasShiftConfigured && (
-                              <CalendarCheck
-                                className="h-4 w-4 text-zinc-500"
-                                title="มีการจัดการเวลาเข้างาน"
-                              />
-                            )}
-                            {(isConsecutive7 || isHoliday || hasOvertimeFromEnableOT) && (
-                              <span
-                                className={`px-2.5 py-1 rounded text-white text-sm font-semibold ${
-                                  isConsecutive7
-                                    ? "bg-green-600"
-                                    : isHoliday
-                                    ? "bg-amber-600"
-                                    : "bg-blue-600"
-                                }`}
-                              >
-                                OT
-                              </span>
-                            )}
-                          </div>
+                        รวม
+                      </TableCell>
+                      {visibleColumns.has("date") && (
+                        <TableCell
+                          className={`px-4 py-3 text-sm font-semibold text-zinc-900 ${
+                            visibleColumns.has("fingerprint") ||
+                            visibleColumns.has("workDays") ||
+                            visibleColumns.has("lunchBreakOT") ||
+                            visibleColumns.has("otHours")
+                              ? "border-r border-zinc-200"
+                              : ""
+                          }`}
+                        >
+                          -
                         </TableCell>
-                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 font-mono">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {timesFormatted.length > 0 ? (
-                              <>
-                                {timesFormatted.map((timeData, timeIndex) => {
-                                  // Check if this is the check-in time and has late warning
-                                  const isCheckInTime = timeIndex === 0
-                                  const showLateWarning = isCheckInTime && isLateWarning
-
-                                  return (
-                                    <div
-                                      key={timeData.id}
-                                      className={`flex items-center gap-1 px-2 py-1 rounded-md ${
-                                        showLateWarning
-                                          ? "bg-red-50 border border-red-200"
-                                          : timeData.isManual
-                                          ? "bg-amber-50 border border-amber-200"
-                                          : "bg-zinc-100"
-                                      }`}
-                                    >
-                                      {showLateWarning ? (
-                                        <ClockAlert className="size-4 text-red-600" />
-                                      ) : (
-                                        <Fingerprint className="size-4" />
-                                      )}
-                                      <span
-                                        className={
-                                          showLateWarning ? "text-red-600 font-medium" : ""
-                                        }
-                                      >
-                                        {timeData.time}
-                                      </span>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-5 w-5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        onClick={() => handleRemoveTimeClick(timeData.id)}
-                                        disabled={isPending}
-                                        title="ลบเวลา"
-                                      >
-                                        <X className="size-3" />
-                                      </Button>
-                                    </div>
-                                  )
-                                })}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="gap-1 text-sm"
-                                  onClick={() =>
-                                    handleAddTime(
-                                      employee.fingerprint,
-                                      entry.date,
-                                      employee.employeeName,
-                                      formattedDate
-                                    )
-                                  }
-                                  disabled={isPending}
-                                  title="เพิ่มเวลา"
-                                >
-                                  <Plus className="size-3" />
-                                  เพิ่มเวลา
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <div className="flex items-center px-2 py-1 rounded-md bg-zinc-100">
-                                  <Fingerprint className="size-4 mr-1" />-
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="gap-1 text-sm"
-                                  onClick={() =>
-                                    handleAddTime(
-                                      employee.fingerprint,
-                                      entry.date,
-                                      employee.employeeName,
-                                      formattedDate
-                                    )
-                                  }
-                                  disabled={isPending}
-                                  title="เพิ่มเวลา"
-                                >
-                                  <Plus className="size-3" />
-                                  เพิ่มเวลา
-                                </Button>
-                              </>
-                            )}
-                          </div>
+                      )}
+                      {visibleColumns.has("fingerprint") && (
+                        <TableCell
+                          className={`px-4 py-3 text-sm font-semibold text-zinc-900 ${
+                            visibleColumns.has("workDays") ||
+                            visibleColumns.has("lunchBreakOT") ||
+                            visibleColumns.has("otHours")
+                              ? "border-r border-zinc-200"
+                              : ""
+                          }`}
+                        >
+                          -
                         </TableCell>
-                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 text-center font-mono">
-                          {hasTwoTimes
-                            ? workDays > 0
-                              ? `${workDays.toFixed(1)} (${workHours.toFixed(1)} ชม.)`
-                              : workDays.toFixed(1)
-                            : "-"}
+                      )}
+                      {visibleColumns.has("workDays") && (
+                        <TableCell
+                          className={`px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono ${
+                            visibleColumns.has("lunchBreakOT") || visibleColumns.has("otHours")
+                              ? "border-r border-zinc-200"
+                              : ""
+                          }`}
+                        >
+                          {employeeWorkDays.toFixed(1)}
                         </TableCell>
-                        <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 text-center font-mono">
-                          {hasTwoTimes ? (lunchBreakOT > 0 ? lunchBreakOT.toFixed(1) : "0") : "-"}
+                      )}
+                      {visibleColumns.has("lunchBreakOT") && (
+                        <TableCell
+                          className={`px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono ${
+                            visibleColumns.has("otHours") ? "border-r border-zinc-200" : ""
+                          }`}
+                        >
+                          {employeeLunchBreakOT.toFixed(1)}
                         </TableCell>
-                        <TableCell className="px-4 py-3 text-sm text-zinc-900 text-center font-mono">
-                          {hasTwoTimes ? (otHours > 0 ? otHours.toFixed(1) : "0") : "-"}
+                      )}
+                      {visibleColumns.has("otHours") && (
+                        <TableCell className="px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
+                          {employeeOTHours.toFixed(1)}
                         </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                  {/* Row for adding new date */}
-                  <TableRow className="border-b border-zinc-200 hover:bg-zinc-50/50">
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1 text-sm"
-                        onClick={() => handleAddDate(employee.fingerprint, employee.employeeName)}
-                        disabled={isPending}
-                        title="เพิ่มวันที่ใหม่"
-                      >
-                        <Plus className="size-3" />
-                        เพิ่มวันที่
-                      </Button>
-                    </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 font-mono">
-                      -
-                    </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 text-center font-mono">
-                      -
-                    </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900 text-center font-mono">
-                      -
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-sm text-zinc-900 text-center font-mono">
-                      -
-                    </TableCell>
-                  </TableRow>
-                  {/* Summary row for this employee */}
-                  <TableRow className="border-t-2 border-zinc-300 bg-zinc-100 hover:bg-zinc-100">
-                    <TableCell
-                      colSpan={2}
-                      className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900"
-                    >
-                      รวม
-                    </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
-                      {employeeWorkDays.toFixed(1)}
-                    </TableCell>
-                    <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
-                      {employeeLunchBreakOT.toFixed(1)}
-                    </TableCell>
-                    <TableCell className="px-4 py-3 text-sm font-semibold text-zinc-900 text-center font-mono">
-                      {employeeOTHours.toFixed(1)}
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              )
-            })}
-          </TableBody>
-        </Table>
+                      )}
+                    </TableRow>
+                  </React.Fragment>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Dialog for adding time */}

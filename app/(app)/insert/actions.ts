@@ -73,9 +73,7 @@ function parseTXT(fileContent: string): Array<{
   for (let i = 0; i < Math.min(10, lines.length); i++) {
     const line = lines[i]
     // Try tab-separated first, then whitespace-separated
-    const columns = line.includes("\t")
-      ? line.split("\t")
-      : line.split(/\s{2,}/)
+    const columns = line.includes("\t") ? line.split("\t") : line.split(/\s{2,}/)
 
     const enNoIdx = columns.findIndex(
       (col) => col.trim().toLowerCase() === "enno" || col.trim().toLowerCase() === "en no"
@@ -105,9 +103,7 @@ function parseTXT(fileContent: string): Array<{
     if (!line) continue
 
     // Try tab-separated first, then whitespace-separated
-    const columns = line.includes("\t")
-      ? line.split("\t")
-      : line.split(/\s{2,}/)
+    const columns = line.includes("\t") ? line.split("\t") : line.split(/\s{2,}/)
 
     if (columns.length <= Math.max(enNoIndex, dateTimeIndex)) continue
 
@@ -153,7 +149,12 @@ function parseExcel(buffer: Buffer): Array<{
       // Excel date serial number
       const excelDate = XLSX.SSF.parse_date_code(dateTime)
       if (excelDate) {
-        dateTimeStr = `${excelDate.y}/${String(excelDate.m).padStart(2, "0")}/${String(excelDate.d).padStart(2, "0")} ${String(excelDate.H).padStart(2, "0")}:${String(excelDate.M).padStart(2, "0")}:${String(excelDate.S).padStart(2, "0")}`
+        dateTimeStr = `${excelDate.y}/${String(excelDate.m).padStart(2, "0")}/${String(
+          excelDate.d
+        ).padStart(2, "0")} ${String(excelDate.H).padStart(2, "0")}:${String(excelDate.M).padStart(
+          2,
+          "0"
+        )}:${String(excelDate.S).padStart(2, "0")}`
       }
     } else {
       dateTimeStr = String(dateTime)
@@ -256,7 +257,10 @@ export async function uploadTimestampFile(formData: FormData): Promise<UploadRes
   }
 }
 
-export async function deleteAllFingerprintsAction(): Promise<{ success: boolean; error: string | null }> {
+export async function deleteAllFingerprintsAction(): Promise<{
+  success: boolean
+  error: string | null
+}> {
   try {
     deleteAllFingerprints()
     revalidatePath("/insert")
@@ -272,7 +276,8 @@ export async function deleteAllFingerprintsAction(): Promise<{ success: boolean;
 
 export async function getFingerprintsPaginatedAction(
   page: number,
-  limit: number
+  limit: number,
+  onlyWithEmployee: boolean = false
 ): Promise<{
   data: Array<{
     id: number
@@ -287,5 +292,5 @@ export async function getFingerprintsPaginatedAction(
   totalPages: number
 }> {
   const { getFingerprintsPaginatedWithEmployee } = await import("@/lib/db")
-  return getFingerprintsPaginatedWithEmployee(page, limit)
+  return getFingerprintsPaginatedWithEmployee(page, limit, onlyWithEmployee)
 }

@@ -454,6 +454,21 @@ export function getFingerprintsCount(): number {
   return result.count
 }
 
+export function getFingerprintsCountWithEmployee(onlyWithEmployee: boolean = false): number {
+  if (onlyWithEmployee) {
+    const result = db
+      .prepare(
+        `SELECT COUNT(*) as count
+         FROM fingerprints f
+         INNER JOIN employees e ON f.fingerprint = e.fingerprint
+         WHERE e.name IS NOT NULL AND e.name != ''`
+      )
+      .get() as { count: number }
+    return result.count
+  }
+  return getFingerprintsCount()
+}
+
 export function getFingerprintsPaginated(
   page: number,
   limit: number
@@ -500,7 +515,8 @@ export type FingerprintWithEmployee = Fingerprint & {
 
 export function getFingerprintsPaginatedWithEmployee(
   page: number,
-  limit: number
+  limit: number,
+  onlyWithEmployee: boolean = false
 ): {
   data: FingerprintWithEmployee[]
   total: number
@@ -509,24 +525,41 @@ export function getFingerprintsPaginatedWithEmployee(
 } {
   const offset = (page - 1) * limit
 
-  const rows = db
-    .prepare(
-      `SELECT
-        f.id,
-        f.fingerprint,
-        f.date,
-        f.time,
-        f.created_at as createdAt,
-        f.is_manual as isManual,
-        e.name as employeeName
-       FROM fingerprints f
-       LEFT JOIN employees e ON f.fingerprint = e.fingerprint
-       ORDER BY f.date DESC, f.time DESC
-       LIMIT ? OFFSET ?`
-    )
-    .all(limit, offset) as Array<Fingerprint & { isManual: number; employeeName: string | null }>
+  let query: string
+  if (onlyWithEmployee) {
+    query = `SELECT
+      f.id,
+      f.fingerprint,
+      f.date,
+      f.time,
+      f.created_at as createdAt,
+      f.is_manual as isManual,
+      e.name as employeeName
+     FROM fingerprints f
+     INNER JOIN employees e ON f.fingerprint = e.fingerprint
+     WHERE e.name IS NOT NULL AND e.name != ''
+     ORDER BY f.date DESC, f.time DESC
+     LIMIT ? OFFSET ?`
+  } else {
+    query = `SELECT
+      f.id,
+      f.fingerprint,
+      f.date,
+      f.time,
+      f.created_at as createdAt,
+      f.is_manual as isManual,
+      e.name as employeeName
+     FROM fingerprints f
+     LEFT JOIN employees e ON f.fingerprint = e.fingerprint
+     ORDER BY f.date DESC, f.time DESC
+     LIMIT ? OFFSET ?`
+  }
 
-  const total = getFingerprintsCount()
+  const rows = db.prepare(query).all(limit, offset) as Array<
+    Fingerprint & { isManual: number; employeeName: string | null }
+  >
+
+  const total = getFingerprintsCountWithEmployee(onlyWithEmployee)
   const totalPages = Math.ceil(total / limit)
 
   return {
@@ -899,9 +932,7 @@ export function createOrUpdateShift(input: {
 
     if (updates.length > 0) {
       updates.push("updated_at = datetime('now')")
-      const stmt = db.prepare(
-        `UPDATE shifts SET ${updates.join(", ")} WHERE date = @date`
-      )
+      const stmt = db.prepare(`UPDATE shifts SET ${updates.join(", ")} WHERE date = @date`)
       stmt.run(params)
     }
 

@@ -24,6 +24,7 @@ export type DashboardStats = {
 export type AttendanceRanking = {
   fingerprint: string
   employeeName: string | null
+  employeeId: number | null
   workDays: number
   lateDays: number
   latePercentage: number
@@ -63,7 +64,8 @@ export async function getAttendanceRanking(
   filterType?: "all" | "day" | "month" | "year",
   date?: Date,
   month?: number,
-  year?: number | null
+  year?: number | null,
+  onlyWithEmployee: boolean = false
 ): Promise<AttendanceRanking[]> {
   // Get all employees
   const employees = getEmployees()
@@ -164,6 +166,7 @@ export async function getAttendanceRanking(
     rankings.push({
       fingerprint,
       employeeName: employee?.name ?? null,
+      employeeId: employee?.id ?? null,
       workDays,
       lateDays,
       latePercentage,
@@ -171,16 +174,40 @@ export async function getAttendanceRanking(
     })
   })
 
-  // Sort by work days descending (คนที่เข้างานมากไปน้อย)
-  rankings.sort((a, b) => {
-    if (b.workDays !== a.workDays) {
-      return b.workDays - a.workDays
+  // Filter by employee name if requested
+  let filteredRankings = rankings
+  if (onlyWithEmployee) {
+    filteredRankings = rankings.filter(
+      (r) => r.employeeName !== null && r.employeeName.trim() !== ""
+    )
+  }
+
+  // Sort by employee id ascending (id น้อยไปมาก)
+  filteredRankings.sort((a, b) => {
+    // ถ้ามี employeeId ทั้งคู่ เรียงตาม id
+    if (a.employeeId !== null && b.employeeId !== null) {
+      return a.employeeId - b.employeeId
     }
-    // If work days are equal, sort by late percentage ascending (น้อยกว่า = ดีกว่า)
-    return a.latePercentage - b.latePercentage
+    // ถ้า a มี id แต่ b ไม่มี ให้ a มาก่อน
+    if (a.employeeId !== null && b.employeeId === null) {
+      return -1
+    }
+    // ถ้า b มี id แต่ a ไม่มี ให้ b มาก่อน
+    if (a.employeeId === null && b.employeeId !== null) {
+      return 1
+    }
+    // ถ้าทั้งคู่ไม่มี id เรียงตาม fingerprint (แปลงเป็น number ก่อน)
+    const aNum = parseInt(a.fingerprint, 10)
+    const bNum = parseInt(b.fingerprint, 10)
+    // ถ้าแปลงเป็น number ได้ทั้งคู่ ให้เรียงตาม number
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return aNum - bNum
+    }
+    // ถ้าแปลงไม่ได้ ให้เรียงตาม string
+    return a.fingerprint.localeCompare(b.fingerprint)
   })
 
-  return rankings
+  return filteredRankings
 }
 
 export async function getDashboardStats(

@@ -17,11 +17,20 @@ export function generateAttendanceRankingPrintHTML(
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
 
-    const workDaysText =
-      totalDaysWithData > 0
-        ? `${ranking.workDays} วัน (${((ranking.workDays / totalDaysWithData) * 100).toFixed(1)}%)`
-        : `${ranking.workDays} วัน`
+    const workDaysText = `${ranking.workDays} วัน`
     const workDaysTextEscaped = workDaysText
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+
+    const lateDaysText =
+      ranking.workDays > 0
+        ? `${ranking.lateDays} วัน จาก ${ranking.workDays} วันทำงาน (${(
+            (ranking.lateDays / ranking.workDays) *
+            100
+          ).toFixed(2)}%)`
+        : `${ranking.lateDays} วัน`
+    const lateDaysTextEscaped = lateDaysText
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
@@ -29,7 +38,7 @@ export function generateAttendanceRankingPrintHTML(
     htmlRows += `<tr>
       <td style="border: 1px solid #000; padding: 8px; text-align: left;">${employeeName}</td>
       <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${workDaysTextEscaped}</td>
-      <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${ranking.lateDays} วัน</td>
+      <td style="border: 1px solid #000; padding: 8px; text-align: center; font-family: monospace;">${lateDaysTextEscaped}</td>
       <td style="border: 1px solid #000; padding: 8px; text-align: center;">${ratingText}</td>
     </tr>`
   })
