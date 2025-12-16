@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { getPayrollData, type PayrollData } from "./actions"
 import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
-import { Printer } from "lucide-react"
-import { generatePayrollPrintHTML } from "@/lib/utils/generate-payroll-print-html"
 
 export default function PayrollPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
@@ -39,28 +37,14 @@ export default function PayrollPage() {
     })
   }
 
-  function handlePrint() {
-    if (payrollData.length === 0) {
-      return
-    }
-
-    const htmlContent = generatePayrollPrintHTML(payrollData, dateRange)
-    const printWindow = window.open("", "_blank")
-
-    if (printWindow) {
-      printWindow.document.write(htmlContent)
-      printWindow.document.close()
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-base font-semibold tracking-tight text-zinc-900">
-            คำนวณชั่วโมงทำงาน
-          </h1>
-          <p className="text-sm text-zinc-600">เลือกช่วงวันที่ที่ต้องการ แล้วกดคำนวณชั่วโมงทำงาน</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">คำนวณชั่วโมงทำงาน</h1>
+          <p className="text-base text-zinc-600">
+            เลือกช่วงวันที่ที่ต้องการ แล้วกดคำนวณชั่วโมงทำงาน
+          </p>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {/* (OT) OT จากเปิดล่วงเวลา */}

@@ -6,6 +6,7 @@ import {
   createFingerprint,
   deleteFingerprint,
   getShiftsByDateRange,
+  getShiftForEmployeeByDate,
   type Fingerprint,
   type Employee,
   type Shift,
@@ -26,6 +27,7 @@ export type PayrollEntry = {
 export type PayrollData = {
   fingerprint: string
   employeeName: string | null
+  employeeId: number | null
   entries: Array<{
     date: string
     times: Array<{
@@ -35,12 +37,11 @@ export type PayrollData = {
     }>
   }>
   shifts: Array<Shift>
+  // Map of employeeId-date -> shift for quick lookup
+  employeeShiftMap: Record<string, Shift>
 }
 
-export async function getPayrollData(
-  startDate: string,
-  endDate: string
-): Promise<PayrollData[]> {
+export async function getPayrollData(startDate: string, endDate: string): Promise<PayrollData[]> {
   // Get fingerprints in date range
   const fingerprints = getFingerprintsByDateRange(startDate, endDate)
 
@@ -102,11 +103,24 @@ export async function getPayrollData(
       entries.push({ date, times })
     })
 
+    // Build employee-shift map for this employee
+    const employeeShiftMap: Record<string, Shift> = {}
+    if (employee?.id) {
+      sortedDates.forEach((date) => {
+        const shift = getShiftForEmployeeByDate(employee.id, date)
+        if (shift) {
+          employeeShiftMap[`${employee.id}-${date}`] = shift
+        }
+      })
+    }
+
     result.push({
       fingerprint,
       employeeName: employee?.name ?? null,
       entries,
-      shifts: Array.from(shiftMap.values()),
+      shifts: shifts, // Pass all shifts array instead of shiftMap values
+      employeeId: employee?.id ?? null,
+      employeeShiftMap,
     })
   })
 
@@ -152,7 +166,9 @@ export async function addFingerprintTime(
   }
 }
 
-export async function removeFingerprintTime(id: number): Promise<{ success: boolean; error?: string }> {
+export async function removeFingerprintTime(
+  id: number
+): Promise<{ success: boolean; error?: string }> {
   try {
     deleteFingerprint(id)
     revalidatePath("/payroll")
@@ -162,4 +178,3 @@ export async function removeFingerprintTime(id: number): Promise<{ success: bool
     return { success: false, error: "เกิดข้อผิดพลาดในการลบเวลา" }
   }
 }
-

@@ -15,6 +15,7 @@ import {
   calculateWorkDaysAndOT,
   getCheckInCheckOut,
   getShiftForDate,
+  getShiftForEmployeeByDate,
   isConsecutiveDay7,
   type Shift,
 } from "@/lib/utils/payroll-calculator"
@@ -509,7 +510,13 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                   if (entry.times.length === 2) {
                     const timeStrings = entry.times.map((t) => t.time)
                     const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
-                    const shift = getShiftForDate(entry.date, shiftMap)
+                    // Use employee-specific shift lookup
+                    const shift = getShiftForEmployeeByDate(
+                      employee.employeeId,
+                      entry.date,
+                      employee.shifts,
+                      employee.employeeShiftMap
+                    )
                     const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
                     const { workDays, workHours, otHours, lunchBreakOT } = calculateWorkDaysAndOT(
                       checkIn,
@@ -554,11 +561,17 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                       const hasTwoTimes = entry.times.length === 2
                       const timeStrings = entry.times.map((t) => t.time)
                       const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
-                      const shift = getShiftForDate(entry.date, shiftMap)
+                      // Use employee-specific shift lookup
+                      const shift = getShiftForEmployeeByDate(
+                        employee.employeeId,
+                        entry.date,
+                        employee.shifts,
+                        employee.employeeShiftMap
+                      )
                       const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
 
                       // Check if shift is configured for this date (not using default values)
-                      const hasShiftConfigured = shiftMap.has(entry.date)
+                      const hasShiftConfigured = employee.shifts.some((s) => s.date === entry.date)
 
                       // Calculate work days and OT hours (only if 2 times)
                       const { workDays, workHours, otHours, lunchBreakOT, isLateWarning } =
@@ -658,16 +671,18 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                                     <CalendarCheck className="h-4 w-4 text-zinc-500" />
                                   </span>
                                 )}
-                                {(isConsecutive7 || isHoliday || hasOvertimeFromEnableOT) && (
-                                  <span
-                                    className={`px-2.5 py-1 rounded text-white text-sm font-semibold ${
-                                      isConsecutive7
-                                        ? "bg-green-600"
-                                        : isHoliday
-                                        ? "bg-amber-600"
-                                        : "bg-blue-600"
-                                    }`}
-                                  >
+                                {isConsecutive7 && (
+                                  <span className="px-2.5 py-1 rounded text-white text-sm font-semibold bg-green-600">
+                                    7D
+                                  </span>
+                                )}
+                                {isHoliday && (
+                                  <span className="px-2.5 py-1 rounded text-white text-sm font-semibold bg-amber-600">
+                                    SD
+                                  </span>
+                                )}
+                                {hasOvertimeFromEnableOT && (
+                                  <span className="px-2.5 py-1 rounded text-white text-sm font-semibold bg-blue-600">
                                     OT
                                   </span>
                                 )}
@@ -813,23 +828,9 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                     })}
                     {/* Row for adding new date */}
                     <TableRow className="border-b border-zinc-200 hover:bg-zinc-50/50">
-                      <TableCell className="border-r border-zinc-200 px-4 py-3"></TableCell>
-                      <TableCell className="border-r border-zinc-200 px-4 py-3 text-sm text-zinc-900">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 text-sm"
-                          onClick={() => handleAddDate(employee.fingerprint, employee.employeeName)}
-                          disabled={isPending}
-                          title="เพิ่มวันที่ใหม่"
-                        >
-                          <Plus className="size-3" />
-                          เพิ่มวันที่
-                        </Button>
-                      </TableCell>
                       {visibleColumns.has("date") && (
                         <TableCell
-                          className={`px-4 py-3 text-sm text-zinc-900 font-mono ${
+                          className={`px-4 py-3 text-sm text-zinc-900 ${
                             visibleColumns.has("fingerprint") ||
                             visibleColumns.has("workDays") ||
                             visibleColumns.has("lunchBreakOT") ||
@@ -838,7 +839,19 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                               : ""
                           }`}
                         >
-                          -
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-sm"
+                            onClick={() =>
+                              handleAddDate(employee.fingerprint, employee.employeeName)
+                            }
+                            disabled={isPending}
+                            title="เพิ่มวันที่ใหม่"
+                          >
+                            <Plus className="size-3" />
+                            เพิ่มวันที่
+                          </Button>
                         </TableCell>
                       )}
                       {visibleColumns.has("fingerprint") && (
@@ -882,20 +895,6 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                     </TableRow>
                     {/* Summary row for this employee */}
                     <TableRow className="border-t-2 border-zinc-300 bg-zinc-100 hover:bg-zinc-100">
-                      <TableCell className="border-r border-zinc-200 px-4 py-3"></TableCell>
-                      <TableCell
-                        className={`px-4 py-3 text-sm font-semibold text-zinc-900 ${
-                          visibleColumns.has("date") ||
-                          visibleColumns.has("fingerprint") ||
-                          visibleColumns.has("workDays") ||
-                          visibleColumns.has("lunchBreakOT") ||
-                          visibleColumns.has("otHours")
-                            ? "border-r border-zinc-200"
-                            : ""
-                        }`}
-                      >
-                        รวม
-                      </TableCell>
                       {visibleColumns.has("date") && (
                         <TableCell
                           className={`px-4 py-3 text-sm font-semibold text-zinc-900 ${
@@ -907,7 +906,7 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
                               : ""
                           }`}
                         >
-                          -
+                          รวม
                         </TableCell>
                       )}
                       {visibleColumns.has("fingerprint") && (

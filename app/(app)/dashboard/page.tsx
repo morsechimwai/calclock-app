@@ -103,10 +103,10 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-base font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
             สรุปการเข้างานของพนักงาน
           </h1>
-          <p className="text-sm text-zinc-600">สรุปการเข้างานของพนักงานตามช่วงเวลา</p>
+          <p className="text-base text-zinc-600">สรุปการเข้างานของพนักงานตามช่วงเวลา</p>
         </div>
         <DateRangeFilter value={filterValue} onChange={handleFilterChange} disabled={isPending} />
       </div>
@@ -116,7 +116,7 @@ export default function DashboardPage() {
 
       <div className="space-y-4">
         <div>
-          <h2 className="text-base font-semibold tracking-tight text-zinc-900">อันดับการเข้างาน</h2>
+          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">สรุปการเข้างาน</h2>
           <p className="mt-1 text-sm text-zinc-600">เรียงลำดับตามจำนวนวันทำงาน (มากไปน้อย)</p>
         </div>
         <AttendanceRankingTable

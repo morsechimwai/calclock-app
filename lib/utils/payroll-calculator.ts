@@ -30,11 +30,17 @@ export function minutesToHours(minutes: number): number {
 }
 
 // Get shift for a date, with default values
+// Note: This function is kept for backward compatibility but may return the first shift found
+// For employee-specific shifts, use getShiftForEmployeeByDate instead
 export function getShiftForDate(
   date: string,
   shifts: Map<string, Shift>
 ): { checkIn: string; checkOut: string; isHoliday: boolean; enableOvertime: boolean } {
-  const shift = shifts.get(date)
+  // Since there can be multiple shifts per date, get the first one
+  // For proper employee-specific shift lookup, use getShiftForEmployeeByDate
+  const shiftsForDate = Array.from(shifts.values()).filter((s) => s.date === date)
+  const shift = shiftsForDate.length > 0 ? shiftsForDate[0] : null
+
   if (shift) {
     // Extract HH:MM from HH:MM:SS format
     const checkIn = shift.checkIn.slice(0, 5)
@@ -46,6 +52,44 @@ export function getShiftForDate(
       enableOvertime: shift.enableOvertime !== undefined ? shift.enableOvertime : false,
     }
   }
+  return { checkIn: "08:00", checkOut: "17:00", isHoliday: false, enableOvertime: false }
+}
+
+// Get shift for a specific employee on a specific date (using shift assignments)
+// This version uses a pre-built employeeShiftMap to avoid requiring server-side modules
+export function getShiftForEmployeeByDate(
+  employeeId: number | null,
+  date: string,
+  shifts: Shift[],
+  employeeShiftMap?: Record<string, Shift>
+): { checkIn: string; checkOut: string; isHoliday: boolean; enableOvertime: boolean } {
+  // First, try to get from employeeShiftMap if provided
+  if (employeeId && employeeShiftMap) {
+    const key = `${employeeId}-${date}`
+    const shift = employeeShiftMap[key]
+    if (shift) {
+      return {
+        checkIn: shift.checkIn.slice(0, 5),
+        checkOut: shift.checkOut.slice(0, 5),
+        isHoliday: shift.isHoliday,
+        enableOvertime: shift.enableOvertime !== undefined ? shift.enableOvertime : false,
+      }
+    }
+  }
+
+  // Fallback: if no assigned shift, use first shift on date or default
+  const shiftsForDate = shifts.filter((s) => s.date === date)
+  if (shiftsForDate.length > 0) {
+    const fallbackShift = shiftsForDate[0]
+    return {
+      checkIn: fallbackShift.checkIn.slice(0, 5),
+      checkOut: fallbackShift.checkOut.slice(0, 5),
+      isHoliday: fallbackShift.isHoliday,
+      enableOvertime:
+        fallbackShift.enableOvertime !== undefined ? fallbackShift.enableOvertime : false,
+    }
+  }
+
   return { checkIn: "08:00", checkOut: "17:00", isHoliday: false, enableOvertime: false }
 }
 

@@ -6,6 +6,7 @@ import {
   getFingerprints,
   getEmployees,
   getShiftsByDateRange,
+  getShiftForEmployeeByDate,
   type Fingerprint,
   type Employee,
   type Shift,
@@ -120,6 +121,25 @@ export async function getAttendanceRanking(
     shiftMap.set(shift.date, shift)
   })
 
+  // Build employee-shift map for quick lookup
+  const employeeShiftMap: Record<string, Shift> = {}
+  if (startDate && endDate) {
+    employees.forEach((emp) => {
+      // Get all dates in range for this employee
+      const dates = fingerprints
+        .filter((fp) => fp.fingerprint === emp.fingerprint)
+        .map((fp) => fp.date)
+        .filter((date, index, self) => self.indexOf(date) === index) // unique dates
+
+      dates.forEach((date) => {
+        const shift = getShiftForEmployeeByDate(emp.id, date)
+        if (shift) {
+          employeeShiftMap[`${emp.id}-${date}`] = shift
+        }
+      })
+    })
+  }
+
   // Group fingerprints by fingerprint and date
   const groupedByFingerprint = new Map<string, Map<string, string[]>>()
 
@@ -144,14 +164,37 @@ export async function getAttendanceRanking(
     let workDays = 0
     let lateDays = 0
 
+    const employee = employeeMap.get(fingerprint)
     dateMap.forEach((times, date) => {
       // Only count if there are exactly 2 time entries (check-in and check-out)
       if (times.length === 2) {
         workDays++
         const { checkIn } = getCheckInCheckOut(times)
-        // Get shift for this date from "จัดการเวลาเข้างาน" (shift management)
-        // This uses the actual shift check-in time set for this specific date
-        const shift = getShiftForDate(date, shiftMap)
+        // Get shift for this employee and date from "จัดการเวลาเข้างาน" (shift management)
+        // This uses the actual shift check-in time set for this specific employee and date
+        let shift: {
+          checkIn: string
+          checkOut: string
+          isHoliday: boolean
+          enableOvertime: boolean
+        }
+        if (employee?.id) {
+          const shiftKey = `${employee.id}-${date}`
+          const assignedShift = employeeShiftMap[shiftKey]
+          if (assignedShift) {
+            shift = {
+              checkIn: assignedShift.checkIn.slice(0, 5),
+              checkOut: assignedShift.checkOut.slice(0, 5),
+              isHoliday: assignedShift.isHoliday,
+              enableOvertime:
+                assignedShift.enableOvertime !== undefined ? assignedShift.enableOvertime : false,
+            }
+          } else {
+            shift = getShiftForDate(date, shiftMap)
+          }
+        } else {
+          shift = getShiftForDate(date, shiftMap)
+        }
         // Check if check-in is late (more than 10 minutes after shift check-in time)
         if (isLate(checkIn, shift.checkIn)) {
           lateDays++
@@ -159,7 +202,6 @@ export async function getAttendanceRanking(
       }
     })
 
-    const employee = employeeMap.get(fingerprint)
     const latePercentage = workDays > 0 ? Math.round((lateDays / workDays) * 100 * 10) / 10 : 0
     const rating: "ดี" | "ควรปรับปรุง" = latePercentage <= 10 ? "ดี" : "ควรปรับปรุง"
 

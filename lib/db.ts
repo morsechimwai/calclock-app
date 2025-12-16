@@ -118,23 +118,141 @@ try {
   db.exec(`ALTER TABLE fingerprints ADD COLUMN is_manual INTEGER NOT NULL DEFAULT 0;`)
 } catch {}
 
-// Create shifts table for work schedule
+// Check if shifts table exists with UNIQUE constraint on date
+let shiftsNeedsMigration = false
+try {
+  const tableInfo = db
+    .prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='shifts'`)
+    .get() as { sql: string } | undefined
+
+  if (
+    tableInfo?.sql?.includes("date TEXT NOT NULL UNIQUE") ||
+    tableInfo?.sql?.includes("UNIQUE(date)")
+  ) {
+    shiftsNeedsMigration = true
+  }
+} catch {
+  // Table doesn't exist yet, will be created below
+}
+
+if (shiftsNeedsMigration) {
+  // Check if shift_assignments table exists (it has foreign key to shifts)
+  const hasAssignments = db
+    .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='shift_assignments'`)
+    .get() as { name: string } | undefined
+
+  // If shift_assignments exists, we need to handle it carefully
+  if (hasAssignments) {
+    // Temporarily disable foreign key constraints
+    db.pragma("foreign_keys = OFF")
+
+    // Recreate table without UNIQUE constraint on date
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS shifts_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        name TEXT,
+        check_in TEXT NOT NULL DEFAULT '08:00:00',
+        check_out TEXT NOT NULL DEFAULT '17:00:00',
+        is_holiday INTEGER NOT NULL DEFAULT 0,
+        enable_overtime INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `)
+
+    // Copy data from old table
+    db.exec(`
+      INSERT INTO shifts_new (id, date, check_in, check_out, is_holiday, enable_overtime, created_at, updated_at)
+      SELECT id, date, check_in, check_out, is_holiday,
+             COALESCE(enable_overtime, 1) as enable_overtime,
+             created_at, updated_at
+      FROM shifts;
+    `)
+
+    // Drop old table
+    db.exec(`DROP TABLE shifts;`)
+
+    // Rename new table
+    db.exec(`ALTER TABLE shifts_new RENAME TO shifts;`)
+
+    // Re-enable foreign key constraints
+    db.pragma("foreign_keys = ON")
+  } else {
+    // No foreign key dependencies, safe to recreate
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS shifts_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        name TEXT,
+        check_in TEXT NOT NULL DEFAULT '08:00:00',
+        check_out TEXT NOT NULL DEFAULT '17:00:00',
+        is_holiday INTEGER NOT NULL DEFAULT 0,
+        enable_overtime INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `)
+
+    // Copy data from old table
+    db.exec(`
+      INSERT INTO shifts_new (id, date, check_in, check_out, is_holiday, enable_overtime, created_at, updated_at)
+      SELECT id, date, check_in, check_out, is_holiday,
+             COALESCE(enable_overtime, 1) as enable_overtime,
+             created_at, updated_at
+      FROM shifts;
+    `)
+
+    // Drop old table
+    db.exec(`DROP TABLE shifts;`)
+
+    // Rename new table
+    db.exec(`ALTER TABLE shifts_new RENAME TO shifts;`)
+  }
+
+  // Recreate indexes
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_shifts_date ON shifts(date);
+  `)
+} else {
+  // Create table normally (will be skipped if already exists)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS shifts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT NOT NULL,
+      name TEXT,
+      check_in TEXT NOT NULL DEFAULT '08:00:00',
+      check_out TEXT NOT NULL DEFAULT '17:00:00',
+      is_holiday INTEGER NOT NULL DEFAULT 0,
+      enable_overtime INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+
+  // Add enable_overtime column if it doesn't exist (for existing tables without migration)
+  try {
+    db.exec(`ALTER TABLE shifts ADD COLUMN enable_overtime INTEGER NOT NULL DEFAULT 1;`)
+  } catch {}
+
+  // Add name column if it doesn't exist
+  try {
+    db.exec(`ALTER TABLE shifts ADD COLUMN name TEXT;`)
+  } catch {}
+}
+
+// Create shift_assignments table for many-to-many relationship between shifts and employees
 db.exec(`
-  CREATE TABLE IF NOT EXISTS shifts (
+  CREATE TABLE IF NOT EXISTS shift_assignments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL UNIQUE,
-    check_in TEXT NOT NULL DEFAULT '08:00:00',
-    check_out TEXT NOT NULL DEFAULT '17:00:00',
-    is_holiday INTEGER NOT NULL DEFAULT 0,
+    shift_id INTEGER NOT NULL,
+    employee_id INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    UNIQUE(shift_id, employee_id),
+    FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE CASCADE,
+    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
   );
 `)
-
-// Add enable_overtime column if it doesn't exist
-try {
-  db.exec(`ALTER TABLE shifts ADD COLUMN enable_overtime INTEGER NOT NULL DEFAULT 1;`)
-} catch {}
 
 // Create index for faster lookups
 db.exec(`
@@ -147,6 +265,14 @@ db.exec(`
 
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_fingerprints_date ON fingerprints(date);
+`)
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_shift_assignments_shift_id ON shift_assignments(shift_id);
+`)
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_shift_assignments_employee_id ON shift_assignments(employee_id);
 `)
 
 export type Employee = {
@@ -816,6 +942,7 @@ export function deleteAllFingerprints(): number {
 export type Shift = {
   id: number
   date: string
+  name: string | null
   checkIn: string
   checkOut: string
   isHoliday: boolean
@@ -824,12 +951,13 @@ export type Shift = {
   updatedAt: string
 }
 
-export function getShift(date: string): Shift | null {
+export function getShiftById(id: number): Shift | null {
   const row = db
     .prepare(
       `SELECT
         id,
         date,
+        name,
         check_in as checkIn,
         check_out as checkOut,
         is_holiday as isHoliday,
@@ -837,17 +965,53 @@ export function getShift(date: string): Shift | null {
         created_at as createdAt,
         updated_at as updatedAt
        FROM shifts
-       WHERE date = ?`
+       WHERE id = ?`
     )
-    .get(date) as (Shift & { isHoliday: number; enableOvertime: number }) | undefined
+    .get(id) as
+    | (Shift & { isHoliday: number; enableOvertime: number; name: string | null })
+    | undefined
 
   if (!row) return null
 
   return {
     ...row,
+    name: row.name || null,
     isHoliday: Boolean(row.isHoliday),
     enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
   }
+}
+
+export function getShiftsByDate(date: string): Shift[] {
+  const rows = db
+    .prepare(
+      `SELECT
+        id,
+        date,
+        name,
+        check_in as checkIn,
+        check_out as checkOut,
+        is_holiday as isHoliday,
+        enable_overtime as enableOvertime,
+        created_at as createdAt,
+        updated_at as updatedAt
+       FROM shifts
+       WHERE date = ?
+       ORDER BY created_at ASC`
+    )
+    .all(date) as Array<Shift & { isHoliday: number; enableOvertime: number; name: string | null }>
+
+  return rows.map((row) => ({
+    ...row,
+    name: row.name || null,
+    isHoliday: Boolean(row.isHoliday),
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
+  }))
+}
+
+// Keep for backward compatibility
+export function getShift(date: string): Shift | null {
+  const shifts = getShiftsByDate(date)
+  return shifts.length > 0 ? shifts[0] : null
 }
 
 export function getShiftsByDateRange(startDate: string, endDate: string): Shift[] {
@@ -856,6 +1020,7 @@ export function getShiftsByDateRange(startDate: string, endDate: string): Shift[
       `SELECT
         id,
         date,
+        name,
         check_in as checkIn,
         check_out as checkOut,
         is_holiday as isHoliday,
@@ -864,12 +1029,15 @@ export function getShiftsByDateRange(startDate: string, endDate: string): Shift[
         updated_at as updatedAt
        FROM shifts
        WHERE date >= ? AND date <= ?
-       ORDER BY date ASC`
+       ORDER BY date ASC, created_at ASC`
     )
-    .all(startDate, endDate) as Array<Shift & { isHoliday: number; enableOvertime: number }>
+    .all(startDate, endDate) as Array<
+    Shift & { isHoliday: number; enableOvertime: number; name: string | null }
+  >
 
   return rows.map((row) => ({
     ...row,
+    name: row.name || null,
     isHoliday: Boolean(row.isHoliday),
     enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
   }))
@@ -881,6 +1049,7 @@ export function getAllShifts(): Shift[] {
       `SELECT
         id,
         date,
+        name,
         check_in as checkIn,
         check_out as checkOut,
         is_holiday as isHoliday,
@@ -888,31 +1057,36 @@ export function getAllShifts(): Shift[] {
         created_at as createdAt,
         updated_at as updatedAt
        FROM shifts
-       ORDER BY date ASC`
+       ORDER BY date ASC, created_at ASC`
     )
-    .all() as Array<Shift & { isHoliday: number; enableOvertime: number }>
+    .all() as Array<Shift & { isHoliday: number; enableOvertime: number; name: string | null }>
 
   return rows.map((row) => ({
     ...row,
+    name: row.name || null,
     isHoliday: Boolean(row.isHoliday),
     enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
   }))
 }
 
 export function createOrUpdateShift(input: {
+  id?: number
   date: string
+  name?: string | null
   checkIn?: string
   checkOut?: string
   isHoliday?: boolean
   enableOvertime?: boolean
 }): Shift {
-  const existing = getShift(input.date)
-
-  if (existing) {
-    // Update existing shift
+  if (input.id) {
+    // Update existing shift by ID
     const updates: string[] = []
-    const params: Record<string, unknown> = { date: input.date }
+    const params: Record<string, unknown> = { id: input.id }
 
+    if (input.name !== undefined) {
+      updates.push("name = @name")
+      params.name = input.name || null
+    }
     if (input.checkIn !== undefined) {
       updates.push("check_in = @checkIn")
       params.checkIn = input.checkIn
@@ -932,16 +1106,17 @@ export function createOrUpdateShift(input: {
 
     if (updates.length > 0) {
       updates.push("updated_at = datetime('now')")
-      const stmt = db.prepare(`UPDATE shifts SET ${updates.join(", ")} WHERE date = @date`)
+      const stmt = db.prepare(`UPDATE shifts SET ${updates.join(", ")} WHERE id = @id`)
       stmt.run(params)
     }
 
-    return getShift(input.date)!
+    return getShiftById(input.id)!
   } else {
     // Create new shift
     const stmt = db.prepare(
       `INSERT INTO shifts (
         date,
+        name,
         check_in,
         check_out,
         is_holiday,
@@ -951,6 +1126,7 @@ export function createOrUpdateShift(input: {
       )
        VALUES (
         @date,
+        @name,
         @checkIn,
         @checkOut,
         @isHoliday,
@@ -960,18 +1136,176 @@ export function createOrUpdateShift(input: {
       )`
     )
 
-    stmt.run({
+    const result = stmt.run({
       date: input.date,
+      name: input.name || null,
       checkIn: input.checkIn || "08:00:00",
       checkOut: input.checkOut || "17:00:00",
       isHoliday: input.isHoliday ? 1 : 0,
       enableOvertime: input.enableOvertime !== undefined ? (input.enableOvertime ? 1 : 0) : 0,
     })
 
-    return getShift(input.date)!
+    return getShiftById(result.lastInsertRowid as number)!
   }
 }
 
+export function deleteShiftById(id: number): void {
+  db.prepare(`DELETE FROM shifts WHERE id = ?`).run(id)
+}
+
+// Keep for backward compatibility
 export function deleteShift(date: string): void {
-  db.prepare(`DELETE FROM shifts WHERE date = ?`).run(date)
+  const shifts = getShiftsByDate(date)
+  if (shifts.length > 0) {
+    // Delete all shifts for this date (backward compatibility)
+    shifts.forEach((shift) => deleteShiftById(shift.id))
+  }
+}
+
+// Shift Assignment functions
+export function getShiftAssignments(shiftId: number): number[] {
+  const rows = db
+    .prepare(`SELECT employee_id FROM shift_assignments WHERE shift_id = ?`)
+    .all(shiftId) as Array<{ employee_id: number }>
+  return rows.map((row) => row.employee_id)
+}
+
+export function getShiftAssignmentsByDate(date: string): number[] {
+  const shifts = getShiftsByDate(date)
+  if (shifts.length === 0) return []
+  // Return union of all employee IDs from all shifts on this date
+  const allEmployeeIds = new Set<number>()
+  shifts.forEach((shift) => {
+    getShiftAssignments(shift.id).forEach((id) => allEmployeeIds.add(id))
+  })
+  return Array.from(allEmployeeIds)
+}
+
+export function getShiftAssignmentsByShiftId(shiftId: number): number[] {
+  return getShiftAssignments(shiftId)
+}
+
+export function setShiftAssignments(shiftId: number, employeeIds: number[]): void {
+  // Delete existing assignments
+  db.prepare(`DELETE FROM shift_assignments WHERE shift_id = ?`).run(shiftId)
+
+  // Insert new assignments
+  if (employeeIds.length > 0) {
+    const stmt = db.prepare(`INSERT INTO shift_assignments (shift_id, employee_id) VALUES (?, ?)`)
+    const insertMany = db.transaction((ids: number[]) => {
+      for (const employeeId of ids) {
+        stmt.run(shiftId, employeeId)
+      }
+    })
+    insertMany(employeeIds)
+  }
+}
+
+export function setShiftAssignmentsByShiftId(shiftId: number, employeeIds: number[]): void {
+  setShiftAssignments(shiftId, employeeIds)
+}
+
+// Keep for backward compatibility - assigns to first shift on date
+export function setShiftAssignmentsByDate(date: string, employeeIds: number[]): void {
+  const shifts = getShiftsByDate(date)
+  if (shifts.length === 0) return
+  setShiftAssignments(shifts[0].id, employeeIds)
+}
+
+export function getShiftAssignmentsWithEmployees(shiftId: number): Employee[] {
+  const rows = db
+    .prepare(
+      `SELECT
+        e.id,
+        e.fingerprint,
+        e.name,
+        e.base_salary as baseSalary,
+        e.address,
+        e.phone,
+        e.has_social_security as hasSocialSecurity,
+        e.birthday,
+        e.national_id as nationalId,
+        e.created_at as createdAt,
+        e.updated_at as updatedAt
+       FROM shift_assignments sa
+       INNER JOIN employees e ON sa.employee_id = e.id
+       WHERE sa.shift_id = ?
+       ORDER BY e.name ASC`
+    )
+    .all(shiftId) as Array<Employee & { hasSocialSecurity: number }>
+
+  return rows.map((row) => ({
+    ...row,
+    hasSocialSecurity: Boolean(row.hasSocialSecurity),
+  }))
+}
+
+export function getShiftAssignmentsWithEmployeesByShiftId(shiftId: number): Employee[] {
+  return getShiftAssignmentsWithEmployees(shiftId)
+}
+
+// Get employee IDs that are already assigned to other shifts on the same date (excluding current shift)
+export function getAssignedEmployeeIdsByDate(date: string, excludeShiftId?: number): number[] {
+  let query = `
+    SELECT DISTINCT sa.employee_id
+    FROM shift_assignments sa
+    INNER JOIN shifts s ON sa.shift_id = s.id
+    WHERE s.date = ?
+  `
+  const params: number[] = []
+
+  if (excludeShiftId) {
+    query += ` AND sa.shift_id != ?`
+    params.push(excludeShiftId)
+  }
+
+  const rows = db.prepare(query).all(date, ...params) as Array<{ employee_id: number }>
+  return rows.map((row) => row.employee_id)
+}
+
+// Get shift for a specific employee on a specific date
+export function getShiftForEmployeeByDate(employeeId: number, date: string): Shift | null {
+  const row = db
+    .prepare(
+      `SELECT
+        s.id,
+        s.date,
+        s.name,
+        s.check_in as checkIn,
+        s.check_out as checkOut,
+        s.is_holiday as isHoliday,
+        s.enable_overtime as enableOvertime,
+        s.created_at as createdAt,
+        s.updated_at as updatedAt
+       FROM shifts s
+       INNER JOIN shift_assignments sa ON s.id = sa.shift_id
+       WHERE sa.employee_id = ? AND s.date = ?
+       ORDER BY s.created_at ASC
+       LIMIT 1`
+    )
+    .get(employeeId, date) as
+    | (Shift & { isHoliday: number; enableOvertime: number; name: string | null })
+    | undefined
+
+  if (!row) return null
+
+  return {
+    ...row,
+    name: row.name || null,
+    isHoliday: Boolean(row.isHoliday),
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
+  }
+}
+
+export function getShiftAssignmentsWithEmployeesByDate(date: string): Employee[] {
+  const shifts = getShiftsByDate(date)
+  if (shifts.length === 0) return []
+  // Return union of all employees from all shifts on this date
+  const allEmployeesMap = new Map<number, Employee>()
+  shifts.forEach((shift) => {
+    getShiftAssignmentsWithEmployees(shift.id).forEach((emp) => {
+      allEmployeesMap.set(emp.id, emp)
+    })
+  })
+  return Array.from(allEmployeesMap.values())
 }

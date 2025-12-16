@@ -159,7 +159,7 @@ export function generateAttendanceRankingPrintHTML(
 </head>
 <body>
   <div class="header">
-    <h1>อันดับการเข้างาน</h1>
+    <h1>สรุปการเข้างาน</h1>
     ${filterTextEscaped ? `<div class="filter">${filterTextEscaped}</div>` : ""}
     <div class="info">จาก ${totalDaysWithData} วันทำงานทั้งหมด</div>
     <div class="info">เกณฑ์การประเมิน: อัตราการเข้าสาย ≤ 10% = ดี, &gt; 10% = ควรปรับปรุง</div>

@@ -5,10 +5,14 @@ import FullCalendar from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/daygrid"
 import interactionPlugin from "@fullcalendar/interaction"
 import type { DateSelectArg, EventClickArg, CalendarApi } from "@fullcalendar/core"
-import { getShiftsAction, createOrUpdateShiftAction, deleteShiftAction } from "./actions"
-import type { Shift } from "@/lib/db"
+import {
+  getShiftsAction,
+  createOrUpdateShiftAction,
+  deleteShiftAction,
+  getShiftAssignmentsWithEmployeesAction,
+} from "./actions"
+import type { Shift, Employee } from "@/lib/db"
 import { ShiftDialog } from "@/components/shift-dialog"
-import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +23,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Calendar as CalendarIcon } from "lucide-react"
 
 // Thai locale configuration
 const thaiLocale = {
@@ -42,31 +45,17 @@ const thaiLocale = {
   weekText: "สัปดาห์",
 }
 
-// Thai month names
-const thaiMonths = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
-]
-
 export default function ShiftPage() {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedShiftId, setSelectedShiftId] = useState<number | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [deleteDate, setDeleteDate] = useState<string | null>(null)
+  const [deleteShiftId, setDeleteShiftId] = useState<number | null>(null)
   const [errorDialogOpen, setErrorDialogOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string>("")
+  const [shiftEmployeesMap, setShiftEmployeesMap] = useState<Record<number, Employee[]>>({})
   const titleUpdateRef = useRef<string>("")
   const isUpdatingTitleRef = useRef(false)
   const calendarApiRef = useRef<CalendarApi | null>(null)
@@ -84,6 +73,85 @@ export default function ShiftPage() {
   useEffect(() => {
     loadShifts()
   }, [])
+
+  // Setup Popover for employee list on employee count click
+  useEffect(() => {
+    if (isLoading) return
+
+    const handleEmployeeCountClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // Check if clicked on employee count element or its parent
+      const employeeCountElement = target.closest("[data-employee-count]") as HTMLElement
+      if (!employeeCountElement) return
+
+      // Check if clicked specifically on the employee count span
+      const clickedOnCount = target.closest('span[style*="display: inline-flex"]')
+      if (!clickedOnCount) return
+
+      e.stopPropagation() // Prevent FullCalendar event click
+
+      const employeeCount = parseInt(
+        employeeCountElement.getAttribute("data-employee-count") || "0"
+      )
+      if (employeeCount === 0) return
+
+      const employeesJson = employeeCountElement.getAttribute("data-employees")
+      if (!employeesJson) return
+
+      try {
+        const employees: Employee[] = JSON.parse(employeesJson)
+        if (employees.length === 0) return
+
+        // Remove existing popovers
+        document.querySelectorAll("[data-employee-popover]").forEach((el) => el.remove())
+
+        // Create popover content
+        const popover = document.createElement("div")
+        popover.setAttribute("data-employee-popover", "true")
+        popover.className = "z-50 w-72 rounded-md border border-zinc-200 bg-white p-4 shadow-md"
+        popover.style.position = "fixed"
+        popover.style.top = `${e.clientY + 10}px`
+        popover.style.left = `${e.clientX + 10}px`
+
+        const title = document.createElement("div")
+        title.className = "text-sm font-semibold text-zinc-900 mb-3"
+        title.textContent = `พนักงานในกะ (${employees.length} คน)`
+        popover.appendChild(title)
+
+        const list = document.createElement("div")
+        list.className = "space-y-2 max-h-60 overflow-y-auto"
+        employees.forEach((emp) => {
+          const item = document.createElement("div")
+          item.className = "text-sm text-zinc-700 py-1"
+          item.textContent = emp.name
+          list.appendChild(item)
+        })
+        popover.appendChild(list)
+
+        document.body.appendChild(popover)
+
+        // Remove popover when clicking outside
+        const removePopover = (clickEvent: MouseEvent) => {
+          if (!popover.contains(clickEvent.target as Node)) {
+            popover.remove()
+            document.removeEventListener("click", removePopover)
+          }
+        }
+        setTimeout(() => {
+          document.addEventListener("click", removePopover)
+        }, 100)
+      } catch (error) {
+        console.error("Error parsing employees:", error)
+      }
+    }
+
+    // Use event delegation
+    document.addEventListener("click", handleEmployeeCountClick, true)
+
+    return () => {
+      document.removeEventListener("click", handleEmployeeCountClick, true)
+    }
+  }, [isLoading])
 
   // Setup MutationObserver to prevent title duplication
   useEffect(() => {
@@ -132,6 +200,18 @@ export default function ShiftPage() {
     try {
       const data = await getShiftsAction()
       setShifts(data)
+
+      // Load employee assignments for all shifts
+      const employeesMap: Record<number, Employee[]> = {}
+      await Promise.all(
+        data.map(async (shift) => {
+          const result = await getShiftAssignmentsWithEmployeesAction(shift.id)
+          if (result.success) {
+            employeesMap[shift.id] = result.employees
+          }
+        })
+      )
+      setShiftEmployeesMap(employeesMap)
     } catch (error) {
       console.error("Error loading shifts:", error)
     } finally {
@@ -142,31 +222,40 @@ export default function ShiftPage() {
   function handleDateSelect(selectInfo: DateSelectArg) {
     const date = selectInfo.startStr.split("T")[0]
     setSelectedDate(date)
+    setSelectedShiftId(null) // New shift
     setDialogOpen(true)
     selectInfo.view.calendar.unselect()
   }
 
   function handleEventClick(clickInfo: EventClickArg) {
+    const shiftId = clickInfo.event.extendedProps?.shiftId as number | undefined
     const date = clickInfo.event.startStr?.split("T")[0]
-    if (date) {
+    if (date && shiftId) {
       setSelectedDate(date)
+      setSelectedShiftId(shiftId)
       setDialogOpen(true)
     }
   }
 
   async function handleSaveShift(data: {
+    id?: number
     date: string
+    name?: string | null
     checkIn: string
     checkOut: string
     isHoliday: boolean
     enableOvertime: boolean
+    employeeIds: number[]
   }) {
     const result = await createOrUpdateShiftAction({
+      id: data.id,
       date: data.date,
+      name: data.name,
       checkIn: data.checkIn,
       checkOut: data.checkOut,
       isHoliday: data.isHoliday,
       enableOvertime: data.enableOvertime,
+      employeeIds: data.employeeIds,
     })
 
     if (result.success && result.data) {
@@ -187,29 +276,22 @@ export default function ShiftPage() {
     }
   }
 
-  function handleDeleteClick(date: string) {
-    setDeleteDate(date)
+  function handleDeleteClick(shiftId: number) {
+    setDeleteShiftId(shiftId)
     setDeleteDialogOpen(true)
   }
 
   async function handleDeleteConfirm() {
-    if (!deleteDate) return
+    if (!deleteShiftId) return
 
-    const result = await deleteShiftAction(deleteDate)
+    const result = await deleteShiftAction(deleteShiftId)
     if (result.success) {
       await loadShifts()
       setDialogOpen(false)
-      // Use the date that was just deleted to set the calendar view
-      const deletedDate = new Date(deleteDate)
-      setTimeout(() => {
-        if (calendarApiRef.current) {
-          calendarApiRef.current.gotoDate(deletedDate)
-          calendarApiRef.current.unselect()
-        }
-      }, 150)
       setSelectedDate(null)
+      setSelectedShiftId(null)
       setDeleteDialogOpen(false)
-      setDeleteDate(null)
+      setDeleteShiftId(null)
     } else {
       setErrorMessage(result.error || "เกิดข้อผิดพลาดในการลบข้อมูล")
       setErrorDialogOpen(true)
@@ -217,8 +299,8 @@ export default function ShiftPage() {
     }
   }
 
-  async function handleDeleteShift(date: string) {
-    handleDeleteClick(date)
+  async function handleDeleteShift(id: number) {
+    handleDeleteClick(id)
   }
 
   // Convert shifts to calendar events
@@ -227,10 +309,13 @@ export default function ShiftPage() {
     const enableOvertime = shift.enableOvertime !== undefined ? shift.enableOvertime : false
     const checkInTime = shift.checkIn.slice(0, 5)
     const checkOutTime = shift.checkOut.slice(0, 5)
-    const timeText = `${checkInTime} - ${checkOutTime}`
+    const shiftNameText = shift.name ? ` [${shift.name}]` : ""
+    const timeText = `${checkInTime} - ${checkOutTime}${shiftNameText}`
+    const employees = shiftEmployeesMap[shift.id] || []
+    const employeeCount = employees.length
 
     if (isHoliday) {
-      // For holidays, create events: holiday label + time + OT indicator (if enabled)
+      // For holidays, create single event with time, OT, and SD indicator
       const holidayEvents: Array<{
         id: string
         title: string
@@ -240,31 +325,18 @@ export default function ShiftPage() {
         borderColor: string
         textColor: string
         extendedProps: {
+          shiftId: number
           checkIn: string
           checkOut: string
           isHoliday: boolean
-          isHolidayLabel?: boolean
-          isHolidayTime?: boolean
-          isOT?: boolean
+          shiftName?: string | null
+          enableOvertime?: boolean
+          employeeCount?: number
+          employees?: Employee[]
         }
       }> = [
         {
-          id: `${shift.id}-holiday-label`,
-          title: "วันหยุดนักขัตฤกษ์",
-          start: shift.date,
-          allDay: true,
-          backgroundColor: "rgb(254 243 199)", // amber-100 for holiday label (light amber)
-          borderColor: "rgb(251 191 36)", // amber-400
-          textColor: "rgb(180 83 9)", // amber-800
-          extendedProps: {
-            checkIn: checkInTime,
-            checkOut: checkOutTime,
-            isHoliday: true,
-            isHolidayLabel: true,
-          },
-        },
-        {
-          id: `${shift.id}-holiday-time`,
+          id: shift.id.toString(),
           title: timeText,
           start: shift.date,
           allDay: true,
@@ -272,37 +344,22 @@ export default function ShiftPage() {
           borderColor: "rgb(228 228 231)", // zinc-200
           textColor: "rgb(24 24 27)", // zinc-900
           extendedProps: {
+            shiftId: shift.id,
             checkIn: checkInTime,
             checkOut: checkOutTime,
             isHoliday: true,
-            isHolidayTime: true,
+            shiftName: shift.name,
+            enableOvertime: enableOvertime,
+            employeeCount,
+            employees,
           },
         },
       ]
 
-      // Add OT indicator if overtime is enabled
-      if (enableOvertime) {
-        holidayEvents.push({
-          id: `${shift.id}-holiday-ot`,
-          title: "OT",
-          start: shift.date,
-          allDay: true,
-          backgroundColor: "rgb(219 234 254)", // blue-100
-          borderColor: "rgb(96 165 250)", // blue-400
-          textColor: "rgb(30 64 175)", // blue-800
-          extendedProps: {
-            checkIn: checkInTime,
-            checkOut: checkOutTime,
-            isHoliday: true,
-            isOT: true,
-          },
-        })
-      }
-
       return holidayEvents
     }
 
-    // For work days, create events: time + OT indicator (if enabled)
+    // For work days, create single event with time and OT indicator (if enabled)
     const workEvents: Array<{
       id: string
       title: string
@@ -312,10 +369,14 @@ export default function ShiftPage() {
       borderColor: string
       textColor: string
       extendedProps: {
+        shiftId: number
         checkIn: string
         checkOut: string
         isHoliday: boolean
-        isOT?: boolean
+        shiftName?: string | null
+        enableOvertime?: boolean
+        employeeCount?: number
+        employees?: Employee[]
       }
     }> = [
       {
@@ -327,42 +388,26 @@ export default function ShiftPage() {
         borderColor: "rgb(228 228 231)", // zinc-200
         textColor: "rgb(24 24 27)", // zinc-900
         extendedProps: {
+          shiftId: shift.id,
           checkIn: checkInTime,
           checkOut: checkOutTime,
           isHoliday: false,
+          shiftName: shift.name,
+          enableOvertime: enableOvertime,
+          employeeCount,
+          employees,
         },
       },
     ]
 
-    // Add OT indicator if overtime is enabled
-    if (enableOvertime) {
-      workEvents.push({
-        id: `${shift.id}-ot`,
-        title: "OT",
-        start: shift.date,
-        allDay: true,
-        backgroundColor: "rgb(219 234 254)", // blue-100
-        borderColor: "rgb(96 165 250)", // blue-400
-        textColor: "rgb(30 64 175)", // blue-800
-        extendedProps: {
-          checkIn: checkInTime,
-          checkOut: checkOutTime,
-          isHoliday: false,
-          isOT: true,
-        },
-      })
-    }
-
     return workEvents
   })
-
-  const selectedShift = selectedDate ? shifts.find((s) => s.date === selectedDate) : null
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-base font-semibold tracking-tight text-zinc-900">จัดการเวลาเข้างาน</h1>
-        <p className="text-sm text-zinc-600">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">จัดการเวลาเข้างาน</h1>
+        <p className="text-base text-zinc-600">
           คลิกที่วันที่เพื่อกำหนดเวลาเข้า-ออก หรือกำหนดเป็นวันหยุดนักขัตฤกษ์
         </p>
       </div>
@@ -384,63 +429,73 @@ export default function ShiftPage() {
             eventClick={handleEventClick}
             locale={thaiLocale}
             eventContent={(eventInfo) => {
-              const { checkIn, checkOut, isHolidayLabel, isHolidayTime, isOT } = eventInfo.event
-                .extendedProps as {
+              const {
+                checkIn,
+                checkOut,
+                isHoliday,
+                shiftName,
+                enableOvertime,
+                employeeCount,
+                employees,
+              } = eventInfo.event.extendedProps as {
                 checkIn?: string
                 checkOut?: string
-                isHolidayLabel?: boolean
-                isHolidayTime?: boolean
-                isOT?: boolean
+                isHoliday?: boolean
+                shiftName?: string | null
+                enableOvertime?: boolean
+                employeeCount?: number
+                employees?: Employee[]
               }
+              const shiftNameText = shiftName ? ` [${shiftName}]` : ""
               const timeText =
-                checkIn && checkOut ? `${checkIn} - ${checkOut}` : eventInfo.event.title
+                checkIn && checkOut
+                  ? `${checkIn} - ${checkOut}${shiftNameText}`
+                  : eventInfo.event.title
 
-              // Holiday label event (yellow)
-              if (isHolidayLabel) {
-                return {
-                  html: `
-                    <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
-                      <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">วันหยุดนักขัตฤกษ์</span>
-                    </div>
-                  `,
-                }
-              }
+              // Holiday event or Work day event
+              const otIndicator = enableOvertime
+                ? `<span style="display: inline-flex; align-items: center; padding: 2px 6px; background-color: rgb(219 234 254); border-radius: 4px; font-size: 0.75rem; font-weight: 500; color: rgb(30 64 175);">OT</span>`
+                : ""
+              const sdIndicator = isHoliday
+                ? `<span style="display: inline-flex; align-items: center; padding: 2px 6px; background-color: rgb(254 243 199); border-radius: 4px; font-size: 0.75rem; font-weight: 500; color: rgb(180 83 9);">SD</span>`
+                : ""
+              const employeeInfo =
+                employeeCount && employeeCount > 0
+                  ? `<span style="display: inline-flex; align-items: center; gap: 2px; font-size: 0.75rem; color: rgb(113 113 122);">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                      </svg>
+                      <span>${employeeCount} คน</span>
+                    </span>`
+                  : ""
 
-              // OT indicator event (blue)
-              if (isOT) {
-                return {
-                  html: `
-                    <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
-                      <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500;">OT</span>
-                    </div>
-                  `,
-                }
-              }
+              const secondLine =
+                otIndicator || employeeInfo || sdIndicator
+                  ? `
+                <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                  ${employeeInfo || ""}
+                  ${otIndicator || ""}
+                  ${sdIndicator || ""}
+                </div>
+              `
+                  : ""
 
-              // Holiday time event (white text on dark background)
-              if (isHolidayTime) {
-                return {
-                  html: `
-                    <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
+              return {
+                html: `
+                  <div style="display: flex; flex-direction: column; padding: 2px 0;" data-employee-count="${
+                    employeeCount || 0
+                  }" data-employees='${JSON.stringify(employees || [])}'>
+                    <div style="display: flex; align-items: center; gap: 4px;">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12 6 12 12 16 14"></polyline>
                       </svg>
                       <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500; font-family: monospace;">${timeText}</span>
                     </div>
-                  `,
-                }
-              }
-
-              // Work day event
-              return {
-                html: `
-                  <div style="display: flex; align-items: center; gap: 4px; padding: 2px 0;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    <span style="font-size: 0.875rem; line-height: 1.25; font-weight: 500; font-family: monospace;">${timeText}</span>
+                    ${secondLine}
                   </div>
                 `,
               }
@@ -524,7 +579,7 @@ export default function ShiftPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         date={selectedDate}
-        shift={selectedShift}
+        shiftId={selectedShiftId}
         onSave={handleSaveShift}
         onDelete={handleDeleteShift}
       />
@@ -535,7 +590,7 @@ export default function ShiftPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>ยืนยันการลบข้อมูล</AlertDialogTitle>
             <AlertDialogDescription>
-              คุณต้องการลบข้อมูลวันนี้หรือไม่? การกระทำนี้ไม่สามารถยกเลิกได้
+              คุณต้องการลบกะนี้หรือไม่? การกระทำนี้ไม่สามารถยกเลิกได้
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
