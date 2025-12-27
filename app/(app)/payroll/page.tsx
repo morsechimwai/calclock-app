@@ -6,7 +6,7 @@ import { PayrollDateRangePicker } from "@/components/payroll-date-range-picker"
 import { PayrollTable } from "@/components/payroll-table"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { getPayrollData, type PayrollData } from "./actions"
+import { getPayrollDataAction, type PayrollData } from "./actions"
 import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
 
 export default function PayrollPage() {
@@ -14,12 +14,14 @@ export default function PayrollPage() {
   const [payrollData, setPayrollData] = useState<PayrollData[]>([])
   const [isPending, startTransition] = useTransition()
   const [hasLoaded, setHasLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function handleLoadData() {
     if (!dateRange?.from || !dateRange?.to) {
       return
     }
 
+    setError(null)
     startTransition(async () => {
       // Format date as YYYY-MM-DD using local timezone
       const formatDate = (date: Date) => {
@@ -31,9 +33,14 @@ export default function PayrollPage() {
 
       const startDate = formatDate(dateRange.from!)
       const endDate = formatDate(dateRange.to!)
-      const data = await getPayrollData(startDate, endDate)
-      setPayrollData(data)
-      setHasLoaded(true)
+      const result = await getPayrollDataAction(startDate, endDate)
+
+      if (result.ok) {
+        setPayrollData(result.data)
+        setHasLoaded(true)
+      } else {
+        setError(result.error.message)
+      }
     })
   }
 
@@ -85,6 +92,8 @@ export default function PayrollPage() {
             {isPending ? "กำลังคำนวณ..." : "คำนวณชั่วโมงทำงาน"}
           </Button>
         </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
 
       {hasLoaded && (
@@ -106,8 +115,10 @@ export default function PayrollPage() {
 
                       const startDate = formatDate(dateRange.from!)
                       const endDate = formatDate(dateRange.to!)
-                      const data = await getPayrollData(startDate, endDate)
-                      setPayrollData(data)
+                      const result = await getPayrollDataAction(startDate, endDate)
+                      if (result.ok) {
+                        setPayrollData(result.data)
+                      }
                     })
                   }
                 }}

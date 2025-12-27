@@ -69,7 +69,13 @@ export function EmployeeTable({ initialData }: Props) {
     startTransition(async () => {
       try {
         const result = await getEmployeesPaginatedAction(newPage, LIMIT)
-        setData(result)
+        if (result.ok) {
+          setData(result.data)
+        } else {
+          console.error("Failed to fetch page:", result.error.message)
+          // Revert page on error
+          setCurrentPage(data.page)
+        }
       } catch (error) {
         console.error("Failed to fetch page:", error)
         // Revert page on error

@@ -4,7 +4,6 @@ import type { DateRange } from "react-day-picker"
 import {
   calculateWorkDaysAndOT,
   getCheckInCheckOut,
-  getShiftForDate,
   getShiftForEmployeeByDate,
   isConsecutiveDay7,
   type Shift,
@@ -15,7 +14,7 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
   let totalWorkDays = 0
   let totalOTHours = 0
   let totalLunchBreakOT = 0
-  let employeeCount = data.length
+  const employeeCount = data.length
 
   data.forEach((employee) => {
     // Create shift map from array

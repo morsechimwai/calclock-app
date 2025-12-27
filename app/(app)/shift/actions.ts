@@ -1,30 +1,19 @@
 "use server"
 
-import {
-  getAllShifts,
-  getShiftsByDateRange,
-  getShiftsByDate,
-  createOrUpdateShift,
-  deleteShiftById,
-  getShiftById,
-  type Shift,
-  getEmployees,
-  type Employee,
-  setShiftAssignmentsByShiftId,
-  getShiftAssignmentsByShiftId,
-  getShiftAssignmentsWithEmployeesByShiftId,
-  getAssignedEmployeeIdsByDate,
-} from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { shiftService, employeeService } from "@/lib/services"
+import { withActionHandler } from "@/lib/errors"
+import type { Shift, Employee } from "@/lib/db"
 
-export async function getShiftsAction(startDate?: string, endDate?: string): Promise<Shift[]> {
+// Action Handlers (internal)
+async function getShiftsHandler(startDate?: string, endDate?: string): Promise<Shift[]> {
   if (startDate && endDate) {
-    return getShiftsByDateRange(startDate, endDate)
+    return shiftService.findByDateRange(startDate, endDate)
   }
-  return getAllShifts()
+  return shiftService.findAll()
 }
 
-export async function createOrUpdateShiftAction(input: {
+async function createOrUpdateShiftHandler(input: {
   id?: number
   date: string
   name?: string | null
@@ -33,102 +22,58 @@ export async function createOrUpdateShiftAction(input: {
   isHoliday?: boolean
   enableOvertime?: boolean
   employeeIds?: number[]
-}): Promise<{ success: boolean; data?: Shift; error?: string }> {
-  try {
-    // Validate: Check if any employee is already assigned to another shift on the same date
-    if (input.employeeIds && input.employeeIds.length > 0) {
-      const assignedEmployeeIds = getAssignedEmployeeIdsByDate(input.date, input.id)
-      const conflictingEmployees = input.employeeIds.filter((id) =>
-        assignedEmployeeIds.includes(id)
-      )
-
-      if (conflictingEmployees.length > 0) {
-        // Get employee names for error message
-        const conflictingEmployeeNames = conflictingEmployees
-          .map((id) => {
-            const emp = getEmployees().find((e) => e.id === id)
-            return emp?.name || `ID: ${id}`
-          })
-          .join(", ")
-
-        return {
-          success: false,
-          error: `พนักงานต่อไปนี้ถูกกำหนดให้กะอื่นในวันเดียวกันแล้ว: ${conflictingEmployeeNames}`,
-        }
-      }
-    }
-
-    const data = createOrUpdateShift(input)
-
-    // Set shift assignments if provided
-    if (input.employeeIds !== undefined) {
-      setShiftAssignmentsByShiftId(data.id, input.employeeIds)
-    }
-
-    revalidatePath("/shift")
-    return { success: true, data }
-  } catch (error) {
-    console.error("Error creating/updating shift:", error)
-    return { success: false, error: "เกิดข้อผิดพลาดในการบันทึกข้อมูล" }
-  }
+}): Promise<Shift> {
+  const shift = await shiftService.createOrUpdate(input)
+  revalidatePath("/shift")
+  return shift
 }
 
-export async function getEmployeesAction(): Promise<Employee[]> {
-  return getEmployees()
+async function getEmployeesHandler(): Promise<Employee[]> {
+  return employeeService.findAll()
 }
 
-export async function getShiftAssignmentsAction(
-  shiftId: number
-): Promise<{ success: boolean; employeeIds: number[] }> {
-  try {
-    const employeeIds = getShiftAssignmentsByShiftId(shiftId)
-    return { success: true, employeeIds }
-  } catch (error) {
-    console.error("Error getting shift assignments:", error)
-    return { success: false, employeeIds: [] }
-  }
+async function getShiftAssignmentsHandler(shiftId: number): Promise<number[]> {
+  return shiftService.getAssignments(shiftId)
 }
 
-export async function getShiftAssignmentsWithEmployeesAction(
-  shiftId: number
-): Promise<{ success: boolean; employees: Employee[] }> {
-  try {
-    const employees = getShiftAssignmentsWithEmployeesByShiftId(shiftId)
-    return { success: true, employees }
-  } catch (error) {
-    console.error("Error getting shift assignments with employees:", error)
-    return { success: false, employees: [] }
-  }
+async function getShiftAssignmentsWithEmployeesHandler(shiftId: number): Promise<Employee[]> {
+  return shiftService.getAssignmentsWithEmployees(shiftId)
 }
 
-export async function deleteShiftAction(id: number): Promise<{ success: boolean; error?: string }> {
-  try {
-    deleteShiftById(id)
-    revalidatePath("/shift")
-    return { success: true }
-  } catch (error) {
-    console.error("Error deleting shift:", error)
-    return { success: false, error: "เกิดข้อผิดพลาดในการลบข้อมูล" }
-  }
+async function deleteShiftHandler(id: number): Promise<void> {
+  await shiftService.deleteById(id)
+  revalidatePath("/shift")
 }
 
-export async function getShiftsByDateAction(date: string): Promise<Shift[]> {
-  return getShiftsByDate(date)
+async function getShiftsByDateHandler(date: string): Promise<Shift[]> {
+  return shiftService.findByDate(date)
 }
 
-export async function getShiftByIdAction(id: number): Promise<Shift | null> {
-  return getShiftById(id)
+async function getShiftByIdHandler(id: number): Promise<Shift> {
+  return shiftService.findById(id)
 }
 
-export async function getAssignedEmployeeIdsByDateAction(
+async function getAssignedEmployeeIdsByDateHandler(
   date: string,
   excludeShiftId?: number
-): Promise<{ success: boolean; employeeIds: number[] }> {
-  try {
-    const employeeIds = getAssignedEmployeeIdsByDate(date, excludeShiftId)
-    return { success: true, employeeIds }
-  } catch (error) {
-    console.error("Error getting assigned employee IDs:", error)
-    return { success: false, employeeIds: [] }
-  }
+): Promise<number[]> {
+  return shiftService.getAssignedEmployeeIdsByDate(date, excludeShiftId)
 }
+
+// Export wrapped actions (Result Pattern)
+export const getShiftsAction = withActionHandler(getShiftsHandler)
+export const createOrUpdateShiftAction = withActionHandler(createOrUpdateShiftHandler)
+export const getEmployeesAction = withActionHandler(getEmployeesHandler)
+export const getShiftAssignmentsAction = withActionHandler(getShiftAssignmentsHandler)
+export const getShiftAssignmentsWithEmployeesAction = withActionHandler(
+  getShiftAssignmentsWithEmployeesHandler
+)
+export const deleteShiftAction = withActionHandler(deleteShiftHandler)
+export const getShiftsByDateAction = withActionHandler(getShiftsByDateHandler)
+export const getShiftByIdAction = withActionHandler(getShiftByIdHandler)
+export const getAssignedEmployeeIdsByDateAction = withActionHandler(
+  getAssignedEmployeeIdsByDateHandler
+)
+
+// Re-export types
+export type { Shift, Employee }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
 import { generatePayrollPrintHTML } from "@/lib/utils/generate-payroll-print-html"
 import type { PayrollData } from "@/app/(app)/payroll/actions"
-import { addFingerprintTime, removeFingerprintTime } from "@/app/(app)/payroll/actions"
+import { addFingerprintTimeAction, removeFingerprintTimeAction } from "@/app/(app)/payroll/actions"
 import { format, isBefore, isAfter, startOfDay } from "date-fns"
 import { th } from "date-fns/locale"
 import { Calendar } from "@/components/ui/calendar"
@@ -156,19 +156,19 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
       : `${timeValue}:00`
 
     startTransition(async () => {
-      const result = await addFingerprintTime(
+      const result = await addFingerprintTimeAction(
         selectedEntry.fingerprint,
         selectedEntry.date,
         formattedTime
       )
-      if (result.success) {
+      if (result.ok) {
         setAddTimeDialogOpen(false)
         setSelectedEntry(null)
         setNewTime("10:30:00")
         router.refresh()
         onRefresh?.()
       } else {
-        alert(result.error || "เกิดข้อผิดพลาดในการเพิ่มเวลา")
+        alert(result.error.message)
       }
     })
   }
@@ -182,14 +182,14 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
     if (!timeToDelete) return
 
     startTransition(async () => {
-      const result = await removeFingerprintTime(timeToDelete)
-      if (result.success) {
+      const result = await removeFingerprintTimeAction(timeToDelete)
+      if (result.ok) {
         setDeleteConfirmOpen(false)
         setTimeToDelete(null)
         router.refresh()
         onRefresh?.()
       } else {
-        alert(result.error || "เกิดข้อผิดพลาดในการลบเวลา")
+        alert(result.error.message)
         setDeleteConfirmOpen(false)
         setTimeToDelete(null)
       }
@@ -285,12 +285,12 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
       : `${timeValue}:00`
 
     startTransition(async () => {
-      const result = await addFingerprintTime(
+      const result = await addFingerprintTimeAction(
         selectedEmployee.fingerprint,
         dateString,
         formattedTime
       )
-      if (result.success) {
+      if (result.ok) {
         setAddDateDialogOpen(false)
         setSelectedEmployee(null)
         setNewDate(undefined)
@@ -298,7 +298,7 @@ export function PayrollTable({ data, dateRange, onRefresh }: Props) {
         router.refresh()
         onRefresh?.()
       } else {
-        alert(result.error || "เกิดข้อผิดพลาดในการเพิ่มเวลา")
+        alert(result.error.message)
       }
     })
   }

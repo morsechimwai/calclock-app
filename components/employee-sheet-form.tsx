@@ -4,12 +4,7 @@ import { useEffect, useState, useRef, useTransition } from "react"
 import { format } from "date-fns"
 import { Info, ChevronDownIcon } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet"
-import {
-  createEmployeeAction,
-  updateEmployeeAction,
-  type CreateEmployeeState,
-  type UpdateEmployeeState,
-} from "@/app/(app)/employee/actions"
+import { createEmployeeAction, updateEmployeeAction } from "@/app/(app)/employee/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,16 +16,23 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import type { Employee } from "@/lib/db"
 import { th } from "date-fns/locale"
 import { formatThaiDateLong } from "@/lib/utils/format-thai-date"
+import type { ReactNode } from "react"
 
 type Props = {
   employee?: Employee | null
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  children?: ReactNode
 }
 
-export function EmployeeSheetForm({ employee, open: controlledOpen, onOpenChange }: Props) {
+type FormState = {
+  success: boolean
+  error: string | null
+}
+
+export function EmployeeSheetForm({ employee, open: controlledOpen, onOpenChange, children }: Props) {
   const isEditMode = !!employee
-  const [state, setState] = useState<CreateEmployeeState | UpdateEmployeeState>({
+  const [state, setState] = useState<FormState>({
     success: false,
     error: null,
   })
@@ -84,7 +86,7 @@ export function EmployeeSheetForm({ employee, open: controlledOpen, onOpenChange
     <Sheet open={open} onOpenChange={setOpen}>
       {!isEditMode && (
         <SheetTrigger asChild>
-          <Button>เพิ่มพนักงานใหม่</Button>
+          {children ?? <Button>เพิ่มพนักงานใหม่</Button>}
         </SheetTrigger>
       )}
       <SheetContent>
@@ -125,7 +127,13 @@ export function EmployeeSheetForm({ employee, open: controlledOpen, onOpenChange
                 const result = isEditMode
                   ? await updateEmployeeAction(formData)
                   : await createEmployeeAction(formData)
-                setState(result)
+
+                // Handle Result Pattern
+                if (result.ok) {
+                  setState({ success: true, error: null })
+                } else {
+                  setState({ success: false, error: result.error.message })
+                }
               })
             }}
             className="flex flex-1 flex-col gap-4"

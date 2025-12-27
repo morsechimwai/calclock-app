@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { OfflineStatus, OfflineBanner } from "@/components/offline-status"
 
 type NavItem = {
   href: string
@@ -44,18 +45,29 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-zinc-100 text-zinc-900">
+      {/* Offline Banner */}
+      <OfflineBanner />
+
       {/* Mobile Header */}
-      <header className="sticky top-0 z-50 flex h-12 items-center gap-3 border-b border-zinc-200 bg-white px-3 md:hidden">
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="เปิดเมนู">
-          <Menu className="h-5 w-5" />
-        </Button>
-        <div className="flex items-center gap-1">
-          <div className="text-base font-black tracking-tight text-zinc-900 uppercase">
-            CalCl
-            <Clock className="inline size-4 text-zinc-50 bg-zinc-900 rounded-full p-0.5 mx-0.5" />
-            ck
+      <header className="sticky top-0 z-50 flex h-12 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-3 md:hidden">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="เปิดเมนู">
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-1">
+            <div className="text-base font-black tracking-tight text-zinc-900 uppercase">
+              CalCl
+              <Clock className="inline size-4 text-zinc-50 bg-zinc-900 rounded-full p-0.5 mx-0.5" />
+              ck
+            </div>
           </div>
         </div>
+        <OfflineStatus />
+      </header>
+
+      {/* Desktop Header */}
+      <header className="hidden md:flex sticky top-0 z-40 h-14 items-center justify-end border-b border-zinc-200 bg-white px-6 ml-60">
+        <OfflineStatus />
       </header>
 
       {/* Overlay for mobile */}

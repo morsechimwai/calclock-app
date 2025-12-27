@@ -2,17 +2,17 @@
 
 import {
   getEmployeesCount,
-  getFingerprintsCount,
   getFingerprints,
   getEmployees,
   getShiftsByDateRange,
   getShiftForEmployeeByDate,
-  type Fingerprint,
   type Employee,
   type Shift,
 } from "@/lib/db"
 import { getCheckInCheckOut, getShiftForDate, timeToMinutes } from "@/lib/utils/payroll-calculator"
+import { withActionHandler } from "@/lib/errors"
 
+// Types
 export type DashboardStats = {
   totalEmployees: number
   totalFingerprints: number
@@ -32,7 +32,7 @@ export type AttendanceRanking = {
   rating: "ดี" | "ควรปรับปรุง"
 }
 
-// Calculate check-in and check-out times from fingerprint data
+// Helper functions
 function calculateWorkHours(times: string[]): { checkIn: string; checkOut: string } {
   if (times.length === 0) {
     return { checkIn: "08:00", checkOut: "17:00" }
@@ -51,17 +51,15 @@ function calculateWorkHours(times: string[]): { checkIn: string; checkOut: strin
   return { checkIn, checkOut }
 }
 
-// Check if check-in is late (more than 10 minutes after shift check-in time)
-// This compares the actual check-in time with the shift check-in time from "จัดการเวลาเข้างาน"
 function isLate(checkInTime: string, shiftCheckIn: string): boolean {
   const checkInMinutes = timeToMinutes(checkInTime)
   const shiftCheckInMinutes = timeToMinutes(shiftCheckIn)
   const lateMinutes = checkInMinutes - shiftCheckInMinutes
-  // Late if more than 10 minutes after shift check-in time
-  return lateMinutes > 10 // LATE_THRESHOLD_MINUTES
+  return lateMinutes > 10
 }
 
-export async function getAttendanceRanking(
+// Action Handlers (internal)
+async function getAttendanceRankingHandler(
   filterType?: "all" | "day" | "month" | "year",
   date?: Date,
   month?: number,
@@ -170,8 +168,7 @@ export async function getAttendanceRanking(
       if (times.length === 2) {
         workDays++
         const { checkIn } = getCheckInCheckOut(times)
-        // Get shift for this employee and date from "จัดการเวลาเข้างาน" (shift management)
-        // This uses the actual shift check-in time set for this specific employee and date
+        // Get shift for this employee and date
         let shift: {
           checkIn: string
           checkOut: string
@@ -224,35 +221,29 @@ export async function getAttendanceRanking(
     )
   }
 
-  // Sort by employee id ascending (id น้อยไปมาก)
+  // Sort by employee id ascending
   filteredRankings.sort((a, b) => {
-    // ถ้ามี employeeId ทั้งคู่ เรียงตาม id
     if (a.employeeId !== null && b.employeeId !== null) {
       return a.employeeId - b.employeeId
     }
-    // ถ้า a มี id แต่ b ไม่มี ให้ a มาก่อน
     if (a.employeeId !== null && b.employeeId === null) {
       return -1
     }
-    // ถ้า b มี id แต่ a ไม่มี ให้ b มาก่อน
     if (a.employeeId === null && b.employeeId !== null) {
       return 1
     }
-    // ถ้าทั้งคู่ไม่มี id เรียงตาม fingerprint (แปลงเป็น number ก่อน)
     const aNum = parseInt(a.fingerprint, 10)
     const bNum = parseInt(b.fingerprint, 10)
-    // ถ้าแปลงเป็น number ได้ทั้งคู่ ให้เรียงตาม number
     if (!isNaN(aNum) && !isNaN(bNum)) {
       return aNum - bNum
     }
-    // ถ้าแปลงไม่ได้ ให้เรียงตาม string
     return a.fingerprint.localeCompare(b.fingerprint)
   })
 
   return filteredRankings
 }
 
-export async function getDashboardStats(
+async function getDashboardStatsHandler(
   filterType?: "all" | "day" | "month" | "year",
   date?: Date,
   month?: number,
@@ -264,19 +255,16 @@ export async function getDashboardStats(
   let fingerprints = getFingerprints()
 
   if (filterType === "year" && year) {
-    // Filter by year
     fingerprints = fingerprints.filter((fp) => {
       const fpYear = parseInt(fp.date.split("-")[0])
       return fpYear === year
     })
   } else if (filterType === "month" && month && year) {
-    // Filter by month and year
     fingerprints = fingerprints.filter((fp) => {
       const [fpYear, fpMonth] = fp.date.split("-").map(Number)
       return fpYear === year && fpMonth === month
     })
   } else if (filterType === "day" && date) {
-    // Filter by specific date
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
       date.getDate()
     ).padStart(2, "0")}`
@@ -320,14 +308,11 @@ export async function getDashboardStats(
   groupedByDate.forEach((dateMap) => {
     dateMap.forEach((times) => {
       if (times.length >= 2) {
-        // Only count if there are at least 2 times (check-in and check-out)
         const { checkIn, checkOut } = calculateWorkHours(times)
 
-        // Extract hour from check-in (HH:MM format)
         const checkInHour = checkIn.split(":")[0]
         checkInHourCounts.set(checkInHour, (checkInHourCounts.get(checkInHour) || 0) + 1)
 
-        // Extract hour from check-out (HH:MM format)
         const checkOutHour = checkOut.split(":")[0]
         checkOutHourCounts.set(checkOutHour, (checkOutHourCounts.get(checkOutHour) || 0) + 1)
       }
@@ -355,3 +340,7 @@ export async function getDashboardStats(
     checkOutStats,
   }
 }
+
+// Export wrapped actions (Result Pattern)
+export const getAttendanceRankingAction = withActionHandler(getAttendanceRankingHandler)
+export const getDashboardStatsAction = withActionHandler(getDashboardStatsHandler)

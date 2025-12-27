@@ -31,11 +31,17 @@ type Props = {
 export function EmployeeRowActions({ employeeId, employeeName, onEditClick }: Props) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [isPending, startTransition] = useTransition()
+  const [error, setError] = React.useState<string | null>(null)
 
   function handleDelete() {
+    setError(null)
     startTransition(async () => {
-      await deleteEmployeeAction(employeeId)
-      setConfirmOpen(false)
+      const result = await deleteEmployeeAction(employeeId)
+      if (result.ok) {
+        setConfirmOpen(false)
+      } else {
+        setError(result.error.message)
+      }
     })
   }
 
@@ -78,6 +84,7 @@ export function EmployeeRowActions({ employeeId, employeeName, onEditClick }: Pr
               การกระทำนี้ไม่สามารถยกเลิกได้
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {error && <p className="text-sm text-red-600">{error}</p>}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>ยกเลิก</AlertDialogCancel>
             <AlertDialogAction

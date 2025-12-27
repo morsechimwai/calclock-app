@@ -289,6 +289,37 @@ export type Employee = {
   updatedAt: string
 }
 
+// Raw row type from database (with number for boolean fields)
+type RawEmployeeRow = {
+  id: number
+  fingerprint: string
+  name: string
+  baseSalary: number
+  address: string | null
+  phone: string | null
+  hasSocialSecurity: number
+  birthday: string | null
+  nationalId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+function mapRawEmployee(row: RawEmployeeRow): Employee {
+  return {
+    id: row.id,
+    fingerprint: row.fingerprint,
+    name: row.name,
+    baseSalary: row.baseSalary,
+    address: row.address,
+    phone: row.phone,
+    hasSocialSecurity: Boolean(row.hasSocialSecurity),
+    birthday: row.birthday,
+    nationalId: row.nationalId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }
+}
+
 export function getEmployees(): Employee[] {
   const rows = db
     .prepare(
@@ -307,12 +338,9 @@ export function getEmployees(): Employee[] {
        FROM employees
        ORDER BY created_at DESC`
     )
-    .all() as Employee[]
+    .all() as RawEmployeeRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    hasSocialSecurity: Boolean(row.hasSocialSecurity),
-  }))
+  return rows.map(mapRawEmployee)
 }
 
 export function createEmployee(input: {
@@ -380,12 +408,9 @@ export function createEmployee(input: {
        FROM employees
        WHERE id = ?`
     )
-    .get(info.lastInsertRowid) as Employee
+    .get(info.lastInsertRowid) as RawEmployeeRow
 
-  return {
-    ...row,
-    hasSocialSecurity: Boolean(row.hasSocialSecurity),
-  }
+  return mapRawEmployee(row)
 }
 
 export function getEmployee(id: number): Employee | null {
@@ -406,14 +431,11 @@ export function getEmployee(id: number): Employee | null {
        FROM employees
        WHERE id = ?`
     )
-    .get(id) as Employee | undefined
+    .get(id) as RawEmployeeRow | undefined
 
   if (!row) return null
 
-  return {
-    ...row,
-    hasSocialSecurity: Boolean(row.hasSocialSecurity),
-  }
+  return mapRawEmployee(row)
 }
 
 export function updateEmployee(
@@ -472,12 +494,9 @@ export function updateEmployee(
        FROM employees
        WHERE id = ?`
     )
-    .get(id) as Employee
+    .get(id) as RawEmployeeRow
 
-  return {
-    ...row,
-    hasSocialSecurity: Boolean(row.hasSocialSecurity),
-  }
+  return mapRawEmployee(row)
 }
 
 export function deleteEmployee(id: number): void {
@@ -520,16 +539,13 @@ export function getEmployeesPaginated(
        ORDER BY created_at DESC
        LIMIT ? OFFSET ?`
     )
-    .all(limit, offset) as Employee[]
+    .all(limit, offset) as RawEmployeeRow[]
 
   const total = getEmployeesCount()
   const totalPages = Math.ceil(total / limit)
 
   return {
-    data: rows.map((row) => ({
-      ...row,
-      hasSocialSecurity: Boolean(row.hasSocialSecurity),
-    })),
+    data: rows.map(mapRawEmployee),
     total,
     page,
     totalPages,
@@ -552,6 +568,27 @@ export type Fingerprint = {
   isManual: boolean
 }
 
+// Raw row type from database (with number for boolean fields)
+type RawFingerprintRow = {
+  id: number
+  fingerprint: string
+  date: string
+  time: string
+  createdAt: string
+  isManual: number
+}
+
+function mapRawFingerprint(row: RawFingerprintRow): Fingerprint {
+  return {
+    id: row.id,
+    fingerprint: row.fingerprint,
+    date: row.date,
+    time: row.time,
+    createdAt: row.createdAt,
+    isManual: Boolean(row.isManual),
+  }
+}
+
 export function getFingerprints(): Fingerprint[] {
   const rows = db
     .prepare(
@@ -565,12 +602,9 @@ export function getFingerprints(): Fingerprint[] {
        FROM fingerprints
        ORDER BY date DESC, time DESC`
     )
-    .all() as Array<Fingerprint & { isManual: number }>
+    .all() as RawFingerprintRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    isManual: Boolean(row.isManual),
-  }))
+  return rows.map(mapRawFingerprint)
 }
 
 export function getFingerprintsCount(): number {
@@ -619,16 +653,13 @@ export function getFingerprintsPaginated(
        ORDER BY date DESC, time DESC
        LIMIT ? OFFSET ?`
     )
-    .all(limit, offset) as Array<Fingerprint & { isManual: number }>
+    .all(limit, offset) as RawFingerprintRow[]
 
   const total = getFingerprintsCount()
   const totalPages = Math.ceil(total / limit)
 
   return {
-    data: rows.map((row) => ({
-      ...row,
-      isManual: Boolean(row.isManual),
-    })),
+    data: rows.map(mapRawFingerprint),
     total,
     page,
     totalPages,
@@ -681,9 +712,17 @@ export function getFingerprintsPaginatedWithEmployee(
      LIMIT ? OFFSET ?`
   }
 
-  const rows = db.prepare(query).all(limit, offset) as Array<
-    Fingerprint & { isManual: number; employeeName: string | null }
-  >
+  type RawRow = {
+    id: number
+    fingerprint: string
+    date: string
+    time: string
+    createdAt: string
+    isManual: number
+    employeeName: string | null
+  }
+
+  const rows = db.prepare(query).all(limit, offset) as RawRow[]
 
   const total = getFingerprintsCountWithEmployee(onlyWithEmployee)
   const totalPages = Math.ceil(total / limit)
@@ -718,12 +757,9 @@ export function getFingerprintsByFingerprint(fingerprint: string): Fingerprint[]
        WHERE fingerprint = ?
        ORDER BY date DESC, time DESC`
     )
-    .all(fingerprint) as Array<Fingerprint & { isManual: number }>
+    .all(fingerprint) as RawFingerprintRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    isManual: Boolean(row.isManual),
-  }))
+  return rows.map(mapRawFingerprint)
 }
 
 export function getFingerprintsByDateRange(startDate: string, endDate: string): Fingerprint[] {
@@ -740,12 +776,9 @@ export function getFingerprintsByDateRange(startDate: string, endDate: string): 
        WHERE date >= ? AND date <= ?
        ORDER BY date ASC, time ASC`
     )
-    .all(startDate, endDate) as Array<Fingerprint & { isManual: number }>
+    .all(startDate, endDate) as RawFingerprintRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    isManual: Boolean(row.isManual),
-  }))
+  return rows.map(mapRawFingerprint)
 }
 
 export function getFingerprint(id: number): Fingerprint | null {
@@ -761,14 +794,11 @@ export function getFingerprint(id: number): Fingerprint | null {
        FROM fingerprints
        WHERE id = ?`
     )
-    .get(id) as (Fingerprint & { isManual: number }) | undefined
+    .get(id) as RawFingerprintRow | undefined
 
   if (!row) return null
 
-  return {
-    ...row,
-    isManual: Boolean(row.isManual),
-  }
+  return mapRawFingerprint(row)
 }
 
 export function createFingerprint(input: {
@@ -825,12 +855,9 @@ export function createFingerprint(input: {
        FROM fingerprints
        WHERE id = ?`
     )
-    .get(info.lastInsertRowid) as Fingerprint & { isManual: number }
+    .get(info.lastInsertRowid) as RawFingerprintRow
 
-  return {
-    ...row,
-    isManual: Boolean(row.isManual),
-  }
+  return mapRawFingerprint(row)
 }
 
 export function createFingerprintsBatch(
@@ -916,12 +943,9 @@ export function updateFingerprint(
        FROM fingerprints
        WHERE id = ?`
     )
-    .get(id) as Fingerprint & { isManual: number }
+    .get(id) as RawFingerprintRow
 
-  return {
-    ...row,
-    isManual: Boolean(row.isManual),
-  }
+  return mapRawFingerprint(row)
 }
 
 export function deleteFingerprint(id: number): void {
@@ -951,6 +975,33 @@ export type Shift = {
   updatedAt: string
 }
 
+// Raw row type from database (with number for boolean fields)
+type RawShiftRow = {
+  id: number
+  date: string
+  name: string | null
+  checkIn: string
+  checkOut: string
+  isHoliday: number
+  enableOvertime: number
+  createdAt: string
+  updatedAt: string
+}
+
+function mapRawShift(row: RawShiftRow): Shift {
+  return {
+    id: row.id,
+    date: row.date,
+    name: row.name || null,
+    checkIn: row.checkIn,
+    checkOut: row.checkOut,
+    isHoliday: Boolean(row.isHoliday),
+    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }
+}
+
 export function getShiftById(id: number): Shift | null {
   const row = db
     .prepare(
@@ -967,18 +1018,11 @@ export function getShiftById(id: number): Shift | null {
        FROM shifts
        WHERE id = ?`
     )
-    .get(id) as
-    | (Shift & { isHoliday: number; enableOvertime: number; name: string | null })
-    | undefined
+    .get(id) as RawShiftRow | undefined
 
   if (!row) return null
 
-  return {
-    ...row,
-    name: row.name || null,
-    isHoliday: Boolean(row.isHoliday),
-    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
-  }
+  return mapRawShift(row)
 }
 
 export function getShiftsByDate(date: string): Shift[] {
@@ -998,14 +1042,9 @@ export function getShiftsByDate(date: string): Shift[] {
        WHERE date = ?
        ORDER BY created_at ASC`
     )
-    .all(date) as Array<Shift & { isHoliday: number; enableOvertime: number; name: string | null }>
+    .all(date) as RawShiftRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    name: row.name || null,
-    isHoliday: Boolean(row.isHoliday),
-    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
-  }))
+  return rows.map(mapRawShift)
 }
 
 // Keep for backward compatibility
@@ -1031,16 +1070,9 @@ export function getShiftsByDateRange(startDate: string, endDate: string): Shift[
        WHERE date >= ? AND date <= ?
        ORDER BY date ASC, created_at ASC`
     )
-    .all(startDate, endDate) as Array<
-    Shift & { isHoliday: number; enableOvertime: number; name: string | null }
-  >
+    .all(startDate, endDate) as RawShiftRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    name: row.name || null,
-    isHoliday: Boolean(row.isHoliday),
-    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
-  }))
+  return rows.map(mapRawShift)
 }
 
 export function getAllShifts(): Shift[] {
@@ -1059,14 +1091,9 @@ export function getAllShifts(): Shift[] {
        FROM shifts
        ORDER BY date ASC, created_at ASC`
     )
-    .all() as Array<Shift & { isHoliday: number; enableOvertime: number; name: string | null }>
+    .all() as RawShiftRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    name: row.name || null,
-    isHoliday: Boolean(row.isHoliday),
-    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
-  }))
+  return rows.map(mapRawShift)
 }
 
 export function createOrUpdateShift(input: {
@@ -1232,12 +1259,9 @@ export function getShiftAssignmentsWithEmployees(shiftId: number): Employee[] {
        WHERE sa.shift_id = ?
        ORDER BY e.name ASC`
     )
-    .all(shiftId) as Array<Employee & { hasSocialSecurity: number }>
+    .all(shiftId) as RawEmployeeRow[]
 
-  return rows.map((row) => ({
-    ...row,
-    hasSocialSecurity: Boolean(row.hasSocialSecurity),
-  }))
+  return rows.map(mapRawEmployee)
 }
 
 export function getShiftAssignmentsWithEmployeesByShiftId(shiftId: number): Employee[] {
@@ -1283,18 +1307,11 @@ export function getShiftForEmployeeByDate(employeeId: number, date: string): Shi
        ORDER BY s.created_at ASC
        LIMIT 1`
     )
-    .get(employeeId, date) as
-    | (Shift & { isHoliday: number; enableOvertime: number; name: string | null })
-    | undefined
+    .get(employeeId, date) as RawShiftRow | undefined
 
   if (!row) return null
 
-  return {
-    ...row,
-    name: row.name || null,
-    isHoliday: Boolean(row.isHoliday),
-    enableOvertime: row.enableOvertime !== undefined ? Boolean(row.enableOvertime) : false,
-  }
+  return mapRawShift(row)
 }
 
 export function getShiftAssignmentsWithEmployeesByDate(date: string): Employee[] {

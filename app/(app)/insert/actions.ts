@@ -1,17 +1,24 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { createFingerprintsBatch, deleteAllFingerprints } from "@/lib/db"
+import { fingerprintService } from "@/lib/services"
+import { withActionHandler, ValidationError } from "@/lib/errors"
 import Papa from "papaparse"
 import * as XLSX from "xlsx"
 
+// Types
 type UploadResult = {
-  success: boolean
   inserted: number
   skipped: number
-  error: string | null
 }
 
+type ParsedRecord = {
+  fingerprint: string
+  date: string
+  time: string
+}
+
+// Helper functions
 function parseDateTime(dateTimeStr: string): { date: string; time: string } | null {
   // Format: 2024/01/28 17:17:05
   const match = dateTimeStr.match(/^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/)
@@ -24,12 +31,8 @@ function parseDateTime(dateTimeStr: string): { date: string; time: string } | nu
   return { date, time }
 }
 
-function parseCSV(fileContent: string): Array<{
-  fingerprint: string
-  date: string
-  time: string
-}> {
-  const result: Array<{ fingerprint: string; date: string; time: string }> = []
+function parseCSV(fileContent: string): ParsedRecord[] {
+  const result: ParsedRecord[] = []
 
   const parsed = Papa.parse(fileContent, {
     header: true,
@@ -55,12 +58,8 @@ function parseCSV(fileContent: string): Array<{
   return result
 }
 
-function parseTXT(fileContent: string): Array<{
-  fingerprint: string
-  date: string
-  time: string
-}> {
-  const result: Array<{ fingerprint: string; date: string; time: string }> = []
+function parseTXT(fileContent: string): ParsedRecord[] {
+  const result: ParsedRecord[] = []
   const lines = fileContent.split(/\r?\n/).filter((line) => line.trim().length > 0)
 
   if (lines.length === 0) return result
@@ -125,17 +124,13 @@ function parseTXT(fileContent: string): Array<{
   return result
 }
 
-function parseExcel(buffer: Buffer): Array<{
-  fingerprint: string
-  date: string
-  time: string
-}> {
+function parseExcel(buffer: Buffer): ParsedRecord[] {
   const workbook = XLSX.read(buffer, { type: "buffer" })
   const sheetName = workbook.SheetNames[0]
   const worksheet = workbook.Sheets[sheetName]
   const data = XLSX.utils.sheet_to_json(worksheet) as Array<Record<string, unknown>>
 
-  const result: Array<{ fingerprint: string; date: string; time: string }> = []
+  const result: ParsedRecord[] = []
 
   for (const row of data) {
     const enNo = row["EnNo"] || row["En No"] || String(row["EnNo"] || "")
@@ -173,108 +168,63 @@ function parseExcel(buffer: Buffer): Array<{
   return result
 }
 
-export async function uploadTimestampFile(formData: FormData): Promise<UploadResult> {
-  try {
-    const file = formData.get("file") as File | null
+// Action Handlers (internal)
+async function uploadTimestampFileHandler(formData: FormData): Promise<UploadResult> {
+  const file = formData.get("file") as File | null
 
-    if (!file) {
-      return {
-        success: false,
-        inserted: 0,
-        skipped: 0,
-        error: "ไม่พบไฟล์",
-      }
-    }
-
-    // Check file size (10 MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      return {
-        success: false,
-        inserted: 0,
-        skipped: 0,
-        error: "ไฟล์มีขนาดเกิน 10 MB",
-      }
-    }
-
-    // Check file type
-    const fileName = file.name.toLowerCase()
-    const isTXT = fileName.endsWith(".txt")
-    const isCSV = fileName.endsWith(".csv")
-    const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls")
-
-    if (!isTXT && !isCSV && !isExcel) {
-      return {
-        success: false,
-        inserted: 0,
-        skipped: 0,
-        error: "รองรับเฉพาะไฟล์ .txt, .csv หรือ .xlsx เท่านั้น",
-      }
-    }
-
-    // Parse file
-    let records: Array<{ fingerprint: string; date: string; time: string }> = []
-
-    if (isTXT) {
-      const text = await file.text()
-      records = parseTXT(text)
-    } else if (isCSV) {
-      const text = await file.text()
-      records = parseCSV(text)
-    } else {
-      const buffer = Buffer.from(await file.arrayBuffer())
-      records = parseExcel(buffer)
-    }
-
-    if (records.length === 0) {
-      return {
-        success: false,
-        inserted: 0,
-        skipped: 0,
-        error: "ไม่พบข้อมูลในไฟล์ หรือรูปแบบไฟล์ไม่ถูกต้อง",
-      }
-    }
-
-    // Insert records (duplicates will be skipped)
-    const result = createFingerprintsBatch(records)
-
-    revalidatePath("/insert")
-    revalidatePath("/payroll")
-
-    return {
-      success: true,
-      inserted: result.inserted,
-      skipped: result.skipped,
-      error: null,
-    }
-  } catch (error) {
-    console.error("Upload error:", error)
-    return {
-      success: false,
-      inserted: 0,
-      skipped: 0,
-      error: error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการอัปโหลดไฟล์",
-    }
+  if (!file) {
+    throw new ValidationError("ไม่พบไฟล์")
   }
+
+  // Check file size (10 MB limit)
+  if (file.size > 10 * 1024 * 1024) {
+    throw new ValidationError("ไฟล์มีขนาดเกิน 10 MB")
+  }
+
+  // Check file type
+  const fileName = file.name.toLowerCase()
+  const isTXT = fileName.endsWith(".txt")
+  const isCSV = fileName.endsWith(".csv")
+  const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls")
+
+  if (!isTXT && !isCSV && !isExcel) {
+    throw new ValidationError("รองรับเฉพาะไฟล์ .txt, .csv หรือ .xlsx เท่านั้น")
+  }
+
+  // Parse file
+  let records: ParsedRecord[] = []
+
+  if (isTXT) {
+    const text = await file.text()
+    records = parseTXT(text)
+  } else if (isCSV) {
+    const text = await file.text()
+    records = parseCSV(text)
+  } else {
+    const buffer = Buffer.from(await file.arrayBuffer())
+    records = parseExcel(buffer)
+  }
+
+  if (records.length === 0) {
+    throw new ValidationError("ไม่พบข้อมูลในไฟล์ หรือรูปแบบไฟล์ไม่ถูกต้อง")
+  }
+
+  // Insert records (duplicates will be skipped)
+  const result = await fingerprintService.createBatch(records)
+
+  revalidatePath("/insert")
+  revalidatePath("/payroll")
+
+  return result
 }
 
-export async function deleteAllFingerprintsAction(): Promise<{
-  success: boolean
-  error: string | null
-}> {
-  try {
-    deleteAllFingerprints()
-    revalidatePath("/insert")
-    return { success: true, error: null }
-  } catch (error) {
-    console.error("Delete all error:", error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการลบข้อมูล",
-    }
-  }
+async function deleteAllFingerprintsHandler(): Promise<number> {
+  const count = await fingerprintService.deleteAll()
+  revalidatePath("/insert")
+  return count
 }
 
-export async function getFingerprintsPaginatedAction(
+async function getFingerprintsPaginatedHandler(
   page: number,
   limit: number,
   onlyWithEmployee: boolean = false
@@ -291,6 +241,10 @@ export async function getFingerprintsPaginatedAction(
   page: number
   totalPages: number
 }> {
-  const { getFingerprintsPaginatedWithEmployee } = await import("@/lib/db")
-  return getFingerprintsPaginatedWithEmployee(page, limit, onlyWithEmployee)
+  return fingerprintService.findPaginatedWithEmployee(page, limit, onlyWithEmployee)
 }
+
+// Export wrapped actions (Result Pattern)
+export const uploadTimestampFileAction = withActionHandler(uploadTimestampFileHandler)
+export const deleteAllFingerprintsAction = withActionHandler(deleteAllFingerprintsHandler)
+export const getFingerprintsPaginatedAction = withActionHandler(getFingerprintsPaginatedHandler)

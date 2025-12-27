@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition, useEffect } from "react"
-import { getDashboardStats, getAttendanceRanking } from "./actions"
+import { getDashboardStatsAction, getAttendanceRankingAction } from "./actions"
 import { DashboardStatsCards } from "@/components/dashboard-stats-cards"
 import { DashboardCharts } from "@/components/dashboard-charts"
 import { AttendanceRankingTable } from "@/components/attendance-ranking-table"
@@ -22,14 +22,14 @@ export default function DashboardPage() {
 
   function loadStats(filter: DateRangeFilterValue, onlyWithEmployeeFilter: boolean) {
     startTransition(async () => {
-      const [statsData, rankingsData] = await Promise.all([
-        getDashboardStats(
+      const [statsResult, rankingsResult] = await Promise.all([
+        getDashboardStatsAction(
           filter.type,
           filter.date,
           filter.month,
           filter.type === "year" ? filter.year : filter.type === "month" ? filter.year : null
         ),
-        getAttendanceRanking(
+        getAttendanceRankingAction(
           filter.type,
           filter.date,
           filter.month,
@@ -37,8 +37,13 @@ export default function DashboardPage() {
           onlyWithEmployeeFilter
         ),
       ])
-      setStats(statsData)
-      setRankings(rankingsData)
+
+      if (statsResult.ok) {
+        setStats(statsResult.data)
+      }
+      if (rankingsResult.ok) {
+        setRankings(rankingsResult.data)
+      }
     })
   }
 

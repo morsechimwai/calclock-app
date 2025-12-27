@@ -65,6 +65,8 @@
 
 - **better-sqlite3** - SQLite Database (WAL mode)
 - **Server Actions** - Data Mutations
+- **sql.js** - SQLite in Browser (WASM) สำหรับ offline mode
+- **IndexedDB** - Client-side storage สำหรับ offline data
 
 ### Libraries
 
@@ -77,6 +79,7 @@
 - **Zustand** - State Management
 - **Lucide React** - Icon Library
 - **React Day Picker** - Date Picker Component
+- **@ducanh2912/next-pwa** - PWA Support
 
 ## Installation
 
@@ -319,6 +322,38 @@ pnpm build
 # Start production server
 pnpm start
 ```
+
+## 📱 PWA (Progressive Web App) - Desktop App
+
+CalClock รองรับการติดตั้งเป็น Desktop Application (PWA) พร้อม offline capabilities
+
+### ติดตั้ง PWA
+
+1. **Build และ Start Server**
+   ```bash
+   pnpm build
+   pnpm start
+   ```
+
+2. **ติดตั้งผ่าน Browser**
+   - เปิด Chrome/Edge ไปที่ `http://localhost:3000`
+   - คลิกปุ่ม **ติดตั้ง** (Install icon) ที่ address bar
+   - App จะถูกติดตั้งเป็น desktop application
+
+3. **หลังติดตั้ง**
+   - ✅ App จะทำงาน standalone (ไม่ต้องเปิด browser)
+   - ✅ Offline Database - ใช้งานได้โดยไม่ต้องมี server (ข้อมูลเก็บใน IndexedDB)
+   - ✅ Auto Sync - sync ข้อมูลเมื่อกลับมา online อัตโนมัติ
+   - ⚠️ API Calls - ยังต้องการ server รันอยู่
+
+### การทำงาน Offline
+
+- ข้อมูลทั้งหมดถูกเก็บใน **IndexedDB** ผ่าน sql.js
+- สามารถ **เพิ่ม/แก้ไข/ลบ** ข้อมูลได้ปกติเมื่อ offline
+- การเปลี่ยนแปลงจะถูกเก็บใน **Sync Queue**
+- เมื่อกลับมา online จะ **sync อัตโนมัติ** ภายใน 30 วินาที
+
+📖 **ดูรายละเอียดเพิ่มเติม:** [PWA_SETUP.md](./PWA_SETUP.md)
 
 ## Available Scripts
 

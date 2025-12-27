@@ -1,5 +1,6 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
 import {
   getFingerprintsByDateRange,
   getEmployees,
@@ -11,8 +12,9 @@ import {
   type Employee,
   type Shift,
 } from "@/lib/db"
-import { revalidatePath } from "next/cache"
+import { withActionHandler, NotFoundError } from "@/lib/errors"
 
+// Types
 export type PayrollEntry = {
   fingerprint: string
   employeeName: string | null
@@ -37,11 +39,11 @@ export type PayrollData = {
     }>
   }>
   shifts: Array<Shift>
-  // Map of employeeId-date -> shift for quick lookup
   employeeShiftMap: Record<string, Shift>
 }
 
-export async function getPayrollData(startDate: string, endDate: string): Promise<PayrollData[]> {
+// Action Handlers (internal)
+async function getPayrollDataHandler(startDate: string, endDate: string): Promise<PayrollData[]> {
   // Get fingerprints in date range
   const fingerprints = getFingerprintsByDateRange(startDate, endDate)
 
@@ -141,40 +143,32 @@ export async function getPayrollData(startDate: string, endDate: string): Promis
   return result
 }
 
-export async function addFingerprintTime(
+async function addFingerprintTimeHandler(
   fingerprint: string,
   date: string,
   time: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const result = createFingerprint({
-      fingerprint,
-      date,
-      time,
-      isManual: true,
-    })
+): Promise<Fingerprint> {
+  const result = createFingerprint({
+    fingerprint,
+    date,
+    time,
+    isManual: true,
+  })
 
-    if (!result) {
-      return { success: false, error: "เวลาเดียวกันมีอยู่แล้ว" }
-    }
-
-    revalidatePath("/payroll")
-    return { success: true }
-  } catch (error) {
-    console.error("Error adding fingerprint time:", error)
-    return { success: false, error: "เกิดข้อผิดพลาดในการเพิ่มเวลา" }
+  if (!result) {
+    throw new NotFoundError("เวลาเดียวกันมีอยู่แล้ว")
   }
+
+  revalidatePath("/payroll")
+  return result
 }
 
-export async function removeFingerprintTime(
-  id: number
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    deleteFingerprint(id)
-    revalidatePath("/payroll")
-    return { success: true }
-  } catch (error) {
-    console.error("Error removing fingerprint time:", error)
-    return { success: false, error: "เกิดข้อผิดพลาดในการลบเวลา" }
-  }
+async function removeFingerprintTimeHandler(id: number): Promise<void> {
+  deleteFingerprint(id)
+  revalidatePath("/payroll")
 }
+
+// Export wrapped actions (Result Pattern)
+export const getPayrollDataAction = withActionHandler(getPayrollDataHandler)
+export const addFingerprintTimeAction = withActionHandler(addFingerprintTimeHandler)
+export const removeFingerprintTimeAction = withActionHandler(removeFingerprintTimeHandler)

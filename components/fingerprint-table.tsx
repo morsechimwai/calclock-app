@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useTransition, useEffect } from "react"
+import { useState, useRef, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   ChevronLeft,
@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/dialog"
 import {
   deleteAllFingerprintsAction,
-  uploadTimestampFile,
+  uploadTimestampFileAction,
   getFingerprintsPaginatedAction,
 } from "@/app/(app)/insert/actions"
 
@@ -91,32 +91,28 @@ export function FingerprintTable({ initialData }: Props) {
   const [onlyWithEmployee, setOnlyWithEmployee] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
 
-  // Sync with initialData when it changes (only when showing all)
-  useEffect(() => {
-    if (!onlyWithEmployee) {
-      setData(initialData)
-      setCurrentPage(initialData.page)
-    }
-  }, [initialData, onlyWithEmployee])
+  // Handle filter changes - fetch filtered data or reset to initial
+  function handleFilterChange(showOnlyWithEmployee: boolean) {
+    setOnlyWithEmployee(showOnlyWithEmployee)
 
-  // Load data when filter changes
-  useEffect(() => {
-    if (onlyWithEmployee) {
+    if (showOnlyWithEmployee) {
       setIsLoadingPage(true)
       setCurrentPage(1)
       startTransition(async () => {
-        try {
-          const result = await getFingerprintsPaginatedAction(1, LIMIT, onlyWithEmployee)
-          setData(result)
-        } catch (error) {
-          console.error("Failed to fetch filtered data:", error)
-        } finally {
-          setIsLoadingPage(false)
+        const result = await getFingerprintsPaginatedAction(1, LIMIT, true)
+        if (result.ok) {
+          setData(result.data)
+        } else {
+          console.error("Failed to fetch filtered data:", result.error.message)
         }
+        setIsLoadingPage(false)
       })
+    } else {
+      // Reset to initial data when filter is cleared
+      setData(initialData)
+      setCurrentPage(initialData.page)
     }
-    // Note: When switching back to "all", the first useEffect will handle it
-  }, [onlyWithEmployee])
+  }
 
   function handlePageChange(newPage: number) {
     if (newPage < 1 || newPage > data.totalPages || isLoadingPage || isPending) return
@@ -125,23 +121,21 @@ export function FingerprintTable({ initialData }: Props) {
     setCurrentPage(newPage)
 
     startTransition(async () => {
-      try {
-        const result = await getFingerprintsPaginatedAction(newPage, LIMIT, onlyWithEmployee)
-        setData(result)
-      } catch (error) {
-        console.error("Failed to fetch page:", error)
-        // Revert page on error
+      const result = await getFingerprintsPaginatedAction(newPage, LIMIT, onlyWithEmployee)
+      if (result.ok) {
+        setData(result.data)
+      } else {
+        console.error("Failed to fetch page:", result.error.message)
         setCurrentPage(data.page)
-      } finally {
-        setIsLoadingPage(false)
       }
+      setIsLoadingPage(false)
     })
   }
 
   function handleDeleteAll() {
     startTransition(async () => {
       const result = await deleteAllFingerprintsAction()
-      if (result.success) {
+      if (result.ok) {
         router.refresh()
       }
     })
@@ -169,28 +163,28 @@ export function FingerprintTable({ initialData }: Props) {
     }, 200)
 
     setIsUploading(true)
-    try {
-      const res = await uploadTimestampFile(formData)
-      clearInterval(progressInterval)
-      setUploadProgress(100)
-      setUploadResult(res)
-      setShowDialog(true)
-      if (res.success) {
-        router.refresh()
-      }
-    } catch (error) {
-      clearInterval(progressInterval)
-      setUploadProgress(0)
+    const result = await uploadTimestampFileAction(formData)
+    clearInterval(progressInterval)
+    setUploadProgress(100)
+
+    if (result.ok) {
+      setUploadResult({
+        success: true,
+        inserted: result.data.inserted,
+        skipped: result.data.skipped,
+        error: null,
+      })
+      router.refresh()
+    } else {
       setUploadResult({
         success: false,
         inserted: 0,
         skipped: 0,
-        error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
+        error: result.error.message,
       })
-      setShowDialog(true)
-    } finally {
-      setIsUploading(false)
     }
+    setShowDialog(true)
+    setIsUploading(false)
   }
 
   function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -224,7 +218,7 @@ export function FingerprintTable({ initialData }: Props) {
         <div className="flex items-center gap-2">
           <Select
             value={onlyWithEmployee ? "with-name" : "all"}
-            onValueChange={(value) => setOnlyWithEmployee(value === "with-name")}
+            onValueChange={(value) => handleFilterChange(value === "with-name")}
             disabled={isLoadingPage || isPending}
           >
             <SelectTrigger className="w-[220px]">

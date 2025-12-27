@@ -198,20 +198,22 @@ export default function ShiftPage() {
   async function loadShifts() {
     setIsLoading(true)
     try {
-      const data = await getShiftsAction()
-      setShifts(data)
+      const result = await getShiftsAction()
+      if (result.ok) {
+        setShifts(result.data)
 
-      // Load employee assignments for all shifts
-      const employeesMap: Record<number, Employee[]> = {}
-      await Promise.all(
-        data.map(async (shift) => {
-          const result = await getShiftAssignmentsWithEmployeesAction(shift.id)
-          if (result.success) {
-            employeesMap[shift.id] = result.employees
-          }
-        })
-      )
-      setShiftEmployeesMap(employeesMap)
+        // Load employee assignments for all shifts
+        const employeesMap: Record<number, Employee[]> = {}
+        await Promise.all(
+          result.data.map(async (shift) => {
+            const empResult = await getShiftAssignmentsWithEmployeesAction(shift.id)
+            if (empResult.ok) {
+              employeesMap[shift.id] = empResult.data
+            }
+          })
+        )
+        setShiftEmployeesMap(employeesMap)
+      }
     } catch (error) {
       console.error("Error loading shifts:", error)
     } finally {
@@ -258,7 +260,7 @@ export default function ShiftPage() {
       employeeIds: data.employeeIds,
     })
 
-    if (result.success && result.data) {
+    if (result.ok) {
       await loadShifts()
       setDialogOpen(false)
       // Use the date that was just saved to set the calendar view
@@ -271,7 +273,7 @@ export default function ShiftPage() {
       }, 150)
       setSelectedDate(null)
     } else {
-      setErrorMessage(result.error || "เกิดข้อผิดพลาดในการบันทึกข้อมูล")
+      setErrorMessage(result.error.message)
       setErrorDialogOpen(true)
     }
   }
@@ -285,7 +287,7 @@ export default function ShiftPage() {
     if (!deleteShiftId) return
 
     const result = await deleteShiftAction(deleteShiftId)
-    if (result.success) {
+    if (result.ok) {
       await loadShifts()
       setDialogOpen(false)
       setSelectedDate(null)
@@ -293,7 +295,7 @@ export default function ShiftPage() {
       setDeleteDialogOpen(false)
       setDeleteShiftId(null)
     } else {
-      setErrorMessage(result.error || "เกิดข้อผิดพลาดในการลบข้อมูล")
+      setErrorMessage(result.error.message)
       setErrorDialogOpen(true)
       setDeleteDialogOpen(false)
     }

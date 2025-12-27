@@ -62,10 +62,12 @@ export function ShiftDialog({ open, onOpenChange, date, shiftId, onSave, onDelet
     async function loadShift() {
       if (!shiftId) return
       try {
-        const shiftData = await getShiftByIdAction(shiftId)
-        setShift(shiftData)
-        if (shiftData) {
-          setShiftName(shiftData.name || "")
+        const result = await getShiftByIdAction(shiftId)
+        if (result.ok) {
+          setShift(result.data)
+          if (result.data) {
+            setShiftName(result.data.name || "")
+          }
         }
       } catch (error) {
         console.error("Error loading shift:", error)
@@ -88,31 +90,31 @@ export function ShiftDialog({ open, onOpenChange, date, shiftId, onSave, onDelet
       const currentDate = date // TypeScript guard
       setIsLoadingEmployees(true)
       try {
-        const [employeesData, assignmentsData, assignedEmployeeIdsData] = await Promise.all([
+        const [employeesResult, assignmentsResult, assignedIdsResult] = await Promise.all([
           getEmployeesAction(),
           shiftId
             ? getShiftAssignmentsAction(shiftId)
-            : Promise.resolve({ success: true, employeeIds: [] }),
+            : Promise.resolve({ ok: true as const, data: [] }),
           getAssignedEmployeeIdsByDateAction(currentDate, shiftId ?? undefined),
         ])
 
-        setEmployees(employeesData)
+        if (employeesResult.ok) {
+          setEmployees(employeesResult.data)
 
-        // Filter out employees that are already assigned to other shifts on the same date
-        const assignedEmployeeIds = assignedEmployeeIdsData.success
-          ? assignedEmployeeIdsData.employeeIds
-          : []
-        const filteredEmployees = employeesData.filter(
-          (emp) => !assignedEmployeeIds.includes(emp.id)
-        )
-        setAvailableEmployees(filteredEmployees)
-
-        // Set selected employees (only if they are still available)
-        if (assignmentsData.success) {
-          const validSelectedIds = assignmentsData.employeeIds.filter((id) =>
-            filteredEmployees.some((emp) => emp.id === id)
+          // Filter out employees that are already assigned to other shifts on the same date
+          const assignedEmployeeIds = assignedIdsResult.ok ? assignedIdsResult.data : []
+          const filteredEmployees = employeesResult.data.filter(
+            (emp) => !assignedEmployeeIds.includes(emp.id)
           )
-          setSelectedEmployeeIds(validSelectedIds)
+          setAvailableEmployees(filteredEmployees)
+
+          // Set selected employees (only if they are still available)
+          if (assignmentsResult.ok) {
+            const validSelectedIds = assignmentsResult.data.filter((id) =>
+              filteredEmployees.some((emp) => emp.id === id)
+            )
+            setSelectedEmployeeIds(validSelectedIds)
+          }
         }
       } catch (error) {
         console.error("Error loading employees:", error)
