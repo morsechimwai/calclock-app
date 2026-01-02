@@ -5,6 +5,7 @@ import {
   calculateWorkDaysAndOT,
   getCheckInCheckOut,
   getShiftForDate,
+  getShiftForEmployeeByDate,
   isConsecutiveDay7,
   type Shift,
 } from "./payroll-calculator"
@@ -36,7 +37,13 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
       if (entry.times.length === 2) {
         const timeStrings = entry.times.map((t) => t.time)
         const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
-        const shift = getShiftForDate(entry.date, shiftMap)
+        // Use employee-specific shift lookup
+        const shift = getShiftForEmployeeByDate(
+          employee.employeeId,
+          entry.date,
+          employee.shifts,
+          employee.employeeShiftMap
+        )
         const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
         const { workDays, otHours, lunchBreakOT } = calculateWorkDaysAndOT(
           checkIn,
@@ -85,7 +92,13 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
       const hasTwoTimes = entry.times.length === 2
       const timeStrings = entry.times.map((t) => t.time)
       const { checkIn, checkOut } = getCheckInCheckOut(timeStrings)
-      const shift = getShiftForDate(entry.date, shiftMap)
+      // Use employee-specific shift lookup
+      const shift = getShiftForEmployeeByDate(
+        employee.employeeId,
+        entry.date,
+        employee.shifts,
+        employee.employeeShiftMap
+      )
       const isConsecutive7 = isConsecutiveDay7(entry.date, employeeDates)
 
       // Calculate work days and OT hours (only if 2 times)
@@ -106,6 +119,9 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
             otHours: 0,
             lunchBreakOT: 0,
           }
+
+      // Check if OT is from enableOvertime (not consecutive day 7 or holiday)
+      const hasOvertimeFromEnableOT = shift.enableOvertime && !isConsecutive7 && !shift.isHoliday
 
       const employeeName = (employee.employeeName || `ไม่พบข้อมูล (รหัส: ${employee.fingerprint})`)
         .replace(/&/g, "&amp;")
@@ -141,6 +157,9 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
       }
       if (isConsecutive7) {
         markers.push("7D")
+      }
+      if (hasOvertimeFromEnableOT && otHours > 0) {
+        markers.push("OT")
       }
       const dateLabel =
         markers.length > 0 ? `${formattedDate} (${markers.join(", ")})` : formattedDate
@@ -333,7 +352,7 @@ export function generatePayrollPrintHTML(data: PayrollData[], dateRange?: DateRa
     <div class="info">วันทำงานเฉลี่ย ${avgWorkDays.toFixed(
       1
     )} วัน ล่วงเวลาโอทีเฉลี่ย ${avgOTHours.toFixed(1)} ชั่วโมง (รวมพักกลางวัน)</div>
-    <div class="info">หมายเหตุ: SD = วันหยุดนักขัตฤกษ์, 7D = ทำงานต่อเนื่อง 7 วัน</div>
+    <div class="info">หมายเหตุ: OT = OT จากเปิดล่วงเวลา, 7D = ทำงานต่อเนื่อง 7 วัน, SD = วันหยุดนักขัตฤกษ์</div>
   </div>
   <table>
     <thead>
